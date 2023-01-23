@@ -13,8 +13,12 @@
 #include "esp_netif_ppp.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
 #include "mqtt_client.h"
 #include "nullmodem.h"
+#include "ping/ping_sock.h"
 #include <string.h>
 
 #define BROKER_URL "mqtt://mqtt.eclipseprojects.io"
@@ -23,7 +27,6 @@ static const char *TAG = "pppos_example";
 static EventGroupHandle_t event_group = NULL;
 static const int CONNECT_BIT = BIT0;
 static const int STOP_BIT = BIT1;
-
 
 static void modem_event_handler(void *event_handler_arg,
                                 esp_event_base_t event_base, int32_t event_id,
@@ -86,6 +89,49 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
   }
 }
 
+static void test_on_ping_success(esp_ping_handle_t hdl, void *args) {
+  // optionally, get callback arguments
+  // const char* str = (const char*) args;
+  // printf("%s\r\n", str); // "foo"
+  uint8_t ttl;
+  uint16_t seqno;
+  uint32_t elapsed_time, recv_len;
+  ip_addr_t target_addr;
+  esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_TTL, &ttl, sizeof(ttl));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr,
+                       sizeof(target_addr));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time,
+                       sizeof(elapsed_time));
+  printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n", recv_len,
+         inet_ntoa(target_addr.u_addr.ip4), seqno, ttl, elapsed_time);
+}
+
+static void test_on_ping_timeout(esp_ping_handle_t hdl, void *args) {
+  uint16_t seqno;
+  ip_addr_t target_addr;
+  esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr,
+                       sizeof(target_addr));
+  printf("From %s icmp_seq=%d timeout\n", inet_ntoa(target_addr.u_addr.ip4),
+         seqno);
+}
+
+static void test_on_ping_end(esp_ping_handle_t hdl, void *args) {
+  uint32_t transmitted;
+  uint32_t received;
+  uint32_t total_time_ms;
+
+  esp_ping_get_profile(hdl, ESP_PING_PROF_REQUEST, &transmitted,
+                       sizeof(transmitted));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_REPLY, &received, sizeof(received));
+  esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms,
+                       sizeof(total_time_ms));
+  printf("%d packets transmitted, %d received, time %dms\n", transmitted,
+         received, total_time_ms);
+}
+
 void app_main(void) {
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -105,8 +151,8 @@ void app_main(void) {
   config.rx_io_num = 17;
   config.flow_control = UART_HW_FLOWCTRL_DISABLE;
   config.baud_rate = 115200;
-  //config.rts_io_num = 0;
-  //config.cts_io_num = 0;
+  // config.rts_io_num = 0;
+  // config.cts_io_num = 0;
   config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
   config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
   config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
@@ -121,14 +167,12 @@ void app_main(void) {
   ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
                                               ESP_EVENT_ANY_ID, NULL));
 
-
-
   // Init netif object
   esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
   esp_netif_t *esp_netif = esp_netif_new(&cfg);
   assert(esp_netif);
 
-  //ESP_ERROR_CHECK(esp_netif_dhcpc_stop(esp_netif));
+  // ESP_ERROR_CHECK(esp_netif_dhcpc_stop(esp_netif));
 
   /*
   esp_netif_ip_info_t ip;
@@ -141,20 +185,20 @@ void app_main(void) {
   void *modem_netif_adapter = esp_modem_netif_setup(dte);
   esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
 
-  modem_dce_t *dce = NULL;
-  dce = nullmodem_init(dte);
+  nullmodem_init(dte);
 
 #if CONFIG_LWIP_PPP_SERVER_SUPPORT
   esp_ip4_addr_t localaddr;
-  esp_netif_set_ip4_addr(&localaddr, 10,10,0,1);
+  esp_netif_set_ip4_addr(&localaddr, 10, 10, 0, 1);
   esp_ip4_addr_t remoteaddr;
-  esp_netif_set_ip4_addr(&remoteaddr, 10,10,0,2);
+  esp_netif_set_ip4_addr(&remoteaddr, 10, 10, 0, 2);
   esp_ip4_addr_t dnsaddr1;
-  esp_netif_set_ip4_addr(&dnsaddr1, 10,10,0,1);
+  esp_netif_set_ip4_addr(&dnsaddr1, 10, 10, 0, 1);
   esp_ip4_addr_t dnsaddr2;
-  esp_netif_set_ip4_addr(&dnsaddr2, 0,0,0,0);
+  esp_netif_set_ip4_addr(&dnsaddr2, 0, 0, 0, 0);
 
-  esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1, dnsaddr2, "", "", 0);
+  esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1,
+                             dnsaddr2, "", "", 0);
 #else
   esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
 #endif
@@ -163,7 +207,28 @@ void app_main(void) {
 
   /* Wait for IP address */
   xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
-  while(true) {
+  ESP_LOGI(TAG, "Now connected, starting infinite ping session");
+
+  esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
+#if CONFIG_LWIP_PPP_SERVER_SUPPORT
+  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 2);
+#else
+  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 1);
+#endif
+  ping_config.count = ESP_PING_COUNT_INFINITE; // ping in infinite mode,
+                                               // esp_ping_stop can stop it
+
+  /* set callback functions */
+  esp_ping_callbacks_t cbs;
+  cbs.on_ping_success = test_on_ping_success;
+  cbs.on_ping_timeout = test_on_ping_timeout;
+  cbs.on_ping_end = test_on_ping_end;
+
+  esp_ping_handle_t ping;
+  esp_ping_new_session(&ping_config, &cbs, &ping);
+  esp_ping_start(ping);
+
+  while (true) {
     vTaskDelay(1000);
   }
 }
