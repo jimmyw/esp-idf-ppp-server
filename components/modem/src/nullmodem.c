@@ -35,14 +35,6 @@ static const char *DCE_TAG = "nullmodem";
     } while (0)
 
 /**
- * @brief Handle response from AT+QPOWD=1
- */
-static esp_err_t nullmodem_handle_power_down(modem_dce_t *dce, const char *line)
-{
-    return ESP_OK;
-}
-
-/**
  * @brief Set Working Mode
  *
  * @param dce Modem DCE object

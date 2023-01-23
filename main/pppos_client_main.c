@@ -143,7 +143,21 @@ void app_main(void) {
 
   modem_dce_t *dce = NULL;
   dce = nullmodem_init(dte);
+
+#if CONFIG_LWIP_PPP_SERVER_SUPPORT
+  esp_ip4_addr_t localaddr;
+  esp_netif_set_ip4_addr(&localaddr, 10,10,0,1);
+  esp_ip4_addr_t remoteaddr;
+  esp_netif_set_ip4_addr(&remoteaddr, 10,10,0,2);
+  esp_ip4_addr_t dnsaddr1;
+  esp_netif_set_ip4_addr(&dnsaddr1, 10,10,0,1);
+  esp_ip4_addr_t dnsaddr2;
+  esp_netif_set_ip4_addr(&dnsaddr2, 0,0,0,0);
+
+  esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1, dnsaddr2, "", "", 0);
+#else
   esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
+#endif
   /* attach the modem to the network interface */
   esp_netif_attach(esp_netif, modem_netif_adapter);
 
