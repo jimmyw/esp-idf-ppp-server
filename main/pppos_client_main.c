@@ -132,6 +132,27 @@ static void test_on_ping_end(esp_ping_handle_t hdl, void *args) {
          received, total_time_ms);
 }
 
+void start_ping(void) {
+  esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
+#if CONFIG_LWIP_PPP_SERVER_SUPPORT
+  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 2);
+#else
+  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 1);
+#endif
+  ping_config.count = ESP_PING_COUNT_INFINITE; // ping in infinite mode,
+                                               // esp_ping_stop can stop it
+
+  /* set callback functions */
+  esp_ping_callbacks_t cbs;
+  cbs.on_ping_success = test_on_ping_success;
+  cbs.on_ping_timeout = test_on_ping_timeout;
+  cbs.on_ping_end = test_on_ping_end;
+
+  esp_ping_handle_t ping;
+  esp_ping_new_session(&ping_config, &cbs, &ping);
+  esp_ping_start(ping);
+}
+
 void app_main(void) {
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -147,12 +168,14 @@ void app_main(void) {
   /* create dte object */
   esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
   /* setup UART specific configuration based on kconfig options */
-  config.tx_io_num = 16;
-  config.rx_io_num = 17;
-  config.flow_control = UART_HW_FLOWCTRL_DISABLE;
-  config.baud_rate = 115200;
-  // config.rts_io_num = 0;
-  // config.cts_io_num = 0;
+  config.tx_io_num = CONFIG_EXAMPLE_MODEM_UART_TX_PIN;
+  config.rx_io_num = CONFIG_EXAMPLE_MODEM_UART_RX_PIN;
+  config.flow_control = CONFIG_EXAMPLE_MODEM_PPP_FLOW;
+  config.baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE;
+#if CONFIG_EXAMPLE_MODEM_PPP_FLOW != 0
+  config.rts_io_num = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN;
+  config.cts_io_num = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN;
+#endif
   config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
   config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
   config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
@@ -172,22 +195,14 @@ void app_main(void) {
   esp_netif_t *esp_netif = esp_netif_new(&cfg);
   assert(esp_netif);
 
-  // ESP_ERROR_CHECK(esp_netif_dhcpc_stop(esp_netif));
-
-  /*
-  esp_netif_ip_info_t ip;
-  memset(&ip, 0, sizeof(esp_netif_ip_info_t));
-  ip.ip.addr = ipaddr_addr("10.10.10.1");
-  ip.netmask.addr = ipaddr_addr("255.255.255.0");
-    ip.gw.addr = ipaddr_addr("10.10.10.2");
-  ESP_ERROR_CHECK(esp_netif_set_ip_info(esp_netif, &ip));*/
-
+  /* Initialize a nullmodem connection using a serial cable */
   void *modem_netif_adapter = esp_modem_netif_setup(dte);
   esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
-
   nullmodem_init(dte);
 
 #if CONFIG_LWIP_PPP_SERVER_SUPPORT
+  /* Configure ppp endpoint as server */
+  ESP_LOGI(TAG, "Will configure as PPP SERVER");
   esp_ip4_addr_t localaddr;
   esp_netif_set_ip4_addr(&localaddr, 10, 10, 0, 1);
   esp_ip4_addr_t remoteaddr;
@@ -200,8 +215,11 @@ void app_main(void) {
   esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1,
                              dnsaddr2, "", "", 0);
 #else
+  /* Configure ppp endpoint as client */
+  ESP_LOGI(TAG, "Will configure as PPP CLIENT");
   esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
 #endif
+
   /* attach the modem to the network interface */
   esp_netif_attach(esp_netif, modem_netif_adapter);
 
@@ -209,25 +227,10 @@ void app_main(void) {
   xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
   ESP_LOGI(TAG, "Now connected, starting infinite ping session");
 
-  esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
-#if CONFIG_LWIP_PPP_SERVER_SUPPORT
-  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 2);
-#else
-  IP_ADDR4(&ping_config.target_addr, 10, 10, 0, 1);
-#endif
-  ping_config.count = ESP_PING_COUNT_INFINITE; // ping in infinite mode,
-                                               // esp_ping_stop can stop it
+  /* Start ping to the other side */
+  start_ping();
 
-  /* set callback functions */
-  esp_ping_callbacks_t cbs;
-  cbs.on_ping_success = test_on_ping_success;
-  cbs.on_ping_timeout = test_on_ping_timeout;
-  cbs.on_ping_end = test_on_ping_end;
-
-  esp_ping_handle_t ping;
-  esp_ping_new_session(&ping_config, &cbs, &ping);
-  esp_ping_start(ping);
-
+  /* Sleep forever */
   while (true) {
     vTaskDelay(1000);
   }

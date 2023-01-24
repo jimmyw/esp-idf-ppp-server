@@ -18,7 +18,11 @@ menu "Example Configuration"
             bool "SIM7600"
             help
                 SIM7600 is Multi-Band LTE-TDD/LTE-FDD/HSPA+ and GSM/GPRS/EDGE module
-    endchoice
+        config EXAMPLE_MODEM_DEVICE_NULLMODEM
+                bool "NULLMODEM"
+                help
+                    Directly attached serial cable
+        endchoice
 
     config EXAMPLE_MODEM_PPP_AUTH_USERNAME
         string "Set username for authentication"
@@ -39,6 +43,21 @@ menu "Example Configuration"
         default n
         help
             Set to true for the PPP client to skip authentication
+
+    config EXAMPLE_MODEM_PPP_BAUDRATE
+        int "Set baudrate"
+        default 115200
+        range 1200 4000000 if !PM_ENABLE
+        range 1200 1000000 if PM_ENABLE
+        help
+            Default baudrate for serial
+
+    config EXAMPLE_MODEM_PPP_FLOW
+        int "Set flowcontrol"
+        default 0
+        range 0 3
+        help
+            0: disable, 1: RTS, 2: CTS, 3: CTS/RTS
 
     config EXAMPLE_SEND_MSG
         bool "Short message (SMS)"
@@ -74,14 +93,14 @@ menu "Example Configuration"
     menu "UART Configuration"
         config EXAMPLE_MODEM_UART_TX_PIN
             int "TXD Pin Number"
-            default 25
+            default 16
             range 0 31
             help
                 Pin number of UART TX.
 
         config EXAMPLE_MODEM_UART_RX_PIN
             int "RXD Pin Number"
-            default 26
+            default 17
             range 0 31
             help
                 Pin number of UART RX.
