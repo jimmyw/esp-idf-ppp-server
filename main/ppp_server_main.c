@@ -189,16 +189,16 @@ void app_main(void) {
   // start_ping();
 
   /* Sleep forever */
-    ESP_LOGI(TAG, " ============================================================");
-    ESP_LOGI(TAG, " |       Steps to Test Bandwidth                             |");
-    ESP_LOGI(TAG, " |                                                           |");
-    ESP_LOGI(TAG, " |  1. Enter 'help', check all supported commands            |");
-    ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                        |");
-    ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                            |");
-    ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.0.0.1 -d 10.0.0.2 -t 60 -i 3' |");
-    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                  |");
-    ESP_LOGI(TAG, " |                                                           |");
-    ESP_LOGI(TAG, " =============================================================");
+    ESP_LOGI(TAG, " ===============================================================");
+    ESP_LOGI(TAG, " |       Steps to Test Bandwidth                               |");
+    ESP_LOGI(TAG, " |                                                             |");
+    ESP_LOGI(TAG, " |  1. Enter 'help', check all supported commands              |");
+    ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                          |");
+    ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                              |");
+    ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.10.0.1 -d 10.10.0.2 -t 60 -i 3' |");
+    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                    |");
+    ESP_LOGI(TAG, " |                                                             |");
+    ESP_LOGI(TAG, " ===============================================================");
 
     // start console REPL
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
