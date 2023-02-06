@@ -95,7 +95,7 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
 static void test_on_ping_success(esp_ping_handle_t hdl, void *args) {
   // optionally, get callback arguments
   // const char* str = (const char*) args;
-  // printf("%s\r\n", str); // "foo"
+  // ESP_LOGI(TAG, "%s\r\n", str); // "foo"
   uint8_t ttl;
   uint16_t seqno;
   uint32_t elapsed_time, recv_len;
@@ -107,7 +107,7 @@ static void test_on_ping_success(esp_ping_handle_t hdl, void *args) {
   esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
   esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time,
                        sizeof(elapsed_time));
-  printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n", recv_len,
+  ESP_LOGI(TAG, "%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n", recv_len,
          inet_ntoa(target_addr.u_addr.ip4), seqno, ttl, elapsed_time);
 }
 
@@ -117,7 +117,7 @@ static void test_on_ping_timeout(esp_ping_handle_t hdl, void *args) {
   esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
   esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr,
                        sizeof(target_addr));
-  printf("From %s icmp_seq=%d timeout\n", inet_ntoa(target_addr.u_addr.ip4),
+  ESP_LOGI(TAG, "From %s icmp_seq=%d timeout\n", inet_ntoa(target_addr.u_addr.ip4),
          seqno);
 }
 
@@ -131,7 +131,7 @@ static void test_on_ping_end(esp_ping_handle_t hdl, void *args) {
   esp_ping_get_profile(hdl, ESP_PING_PROF_REPLY, &received, sizeof(received));
   esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms,
                        sizeof(total_time_ms));
-  printf("%d packets transmitted, %d received, time %dms\n", transmitted,
+  ESP_LOGI(TAG, "%d packets transmitted, %d received, time %dms\n", transmitted,
          received, total_time_ms);
 }
 
@@ -252,15 +252,15 @@ void app_main(void) {
   // start_ping();
 
   /* Sleep forever */
-    printf("\n ===========================================================\n");
-    printf(" |       Steps to Test Bandwidth                            |\n");
-    printf(" |                                                          |\n");
-    printf(" |  1. Enter 'help', check all supported commands           |\n");
-    printf(" |  2. Wait ESP32 to get IP from DHCP                       |\n");
-    printf(" |  3. Server: 'iperf -u -s -i 3'                           |\n");
-    printf(" |  4. Client: 'iperf -u -c SERVER_IP -d OWN_IP-t 60 -i 3'  |\n");
-    printf(" |                                                          |\n");
-    printf(" ============================================================\n\n");
+    ESP_LOGI(TAG, " ============================================================");
+    ESP_LOGI(TAG, " |       Steps to Test Bandwidth                             |");
+    ESP_LOGI(TAG, " |                                                           |");
+    ESP_LOGI(TAG, " |  1. Enter 'help', check all supported commands            |");
+    ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                        |");
+    ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                            |");
+    ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.0.0.1 -d 10.0.0.2 -t 60 -i 3' |");
+    ESP_LOGI(TAG, " |                                                           |");
+    ESP_LOGI(TAG, " =============================================================");
 
     // start console REPL
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
