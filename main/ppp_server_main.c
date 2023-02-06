@@ -1,4 +1,4 @@
-/* PPPoS Client Example
+/* PPP_SERVER Example
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -26,7 +26,7 @@
 #include "cmd_ping.h"
 
 
-static const char *TAG = "pppos_example";
+static const char *TAG = "ppp_server";
 static EventGroupHandle_t event_group = NULL;
 static const int CONNECT_BIT = BIT0;
 static const int STOP_BIT = BIT1;
@@ -196,6 +196,7 @@ void app_main(void) {
     ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                        |");
     ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                            |");
     ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.0.0.1 -d 10.0.0.2 -t 60 -i 3' |");
+    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                 | ")
     ESP_LOGI(TAG, " |                                                           |");
     ESP_LOGI(TAG, " =============================================================");
 

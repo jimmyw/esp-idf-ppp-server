@@ -1,2 +1,2 @@
-idf_component_register(SRCS "pppos_server_main.c"
+idf_component_register(SRCS "ppp_server_main.c"
                     INCLUDE_DIRS ".")
