@@ -6,11 +6,16 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#include "cmd_iperf.h"
+#include "cmd_ping.h"
+#include "cmd_system.h"
+#include "esp_console.h"
 #include "esp_log.h"
 #include "esp_modem.h"
 #include "esp_modem_netif.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
+#include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "lwip/inet.h"
@@ -19,12 +24,6 @@
 #include "mqtt_client.h"
 #include "nullmodem.h"
 #include <string.h>
-#include "esp_console.h"
-#include "esp_vfs_fat.h"
-#include "cmd_system.h"
-#include "cmd_iperf.h"
-#include "cmd_ping.h"
-
 
 static const char *TAG = "ppp_server";
 static EventGroupHandle_t event_group = NULL;
@@ -52,11 +51,51 @@ static void modem_event_handler(void *event_handler_arg,
 
 static void on_ppp_changed(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data) {
-  ESP_LOGI(TAG, "PPP state changed event %d", event_id);
-  if (event_id == NETIF_PPP_ERRORUSER) {
-    /* User interrupted event from esp-netif */
-    esp_netif_t *netif = *(esp_netif_t **)event_data;
+
+  esp_netif_t *netif = *(esp_netif_t **)event_data;
+  switch (event_id) {
+  case NETIF_PPP_ERRORNONE:
+    ESP_LOGI(TAG, "No error. from netif: %p", netif);
+    break;
+  case NETIF_PPP_ERRORPARAM:
+    ESP_LOGI(TAG, "Invalid parameter. from netif: %p", netif);
+    break;
+  case NETIF_PPP_ERROROPEN:
+    ESP_LOGI(TAG, "Unable to open PPP session. from netif: %p", netif);
+    break;
+  case NETIF_PPP_ERRORDEVICE:
+    ESP_LOGI(TAG, "Invalid I/O device for PPP. from netif: %p", netif);
+    break;
+  case NETIF_PPP_ERRORALLOC:
+    ESP_LOGI(TAG, "Unable to allocate resources. from netif: %p", netif);
+    break;
+  case NETIF_PPP_ERRORUSER:
     ESP_LOGI(TAG, "User interrupted event from netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORCONNECT:
+    ESP_LOGI(TAG, "Connection lost. netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORAUTHFAIL:
+    ESP_LOGI(TAG, "Failed authentication challenge. netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORPROTOCOL:
+    ESP_LOGI(TAG, "Failed to meet protocol. netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORPEERDEAD:
+    ESP_LOGI(TAG, "Connection timeout netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORIDLETIMEOUT:
+    ESP_LOGI(TAG, "Idle Timeout netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORCONNECTTIME:
+    ESP_LOGI(TAG, "Max connect time reached netif:%p", netif);
+    break;
+  case NETIF_PPP_ERRORLOOPBACK:
+    ESP_LOGI(TAG, "Loopback detected netif:%p", netif);
+    break;
+  default:
+    ESP_LOGI(TAG, "PPP state changed event %d", event_id);
+    break;
   }
 }
 
@@ -182,24 +221,35 @@ void app_main(void) {
   esp_netif_attach(esp_netif, modem_netif_adapter);
 
   /* Wait for IP address */
-  //xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
-  //ESP_LOGI(TAG, "Now connected, starting infinite ping session");
+  // xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE,
+  // portMAX_DELAY); ESP_LOGI(TAG, "Now connected, starting infinite ping
+  // session");
 
   /* Start ping to the other side */
   // start_ping();
 
   /* Sleep forever */
-    ESP_LOGI(TAG, " ===============================================================");
-    ESP_LOGI(TAG, " |       Steps to Test Bandwidth                               |");
-    ESP_LOGI(TAG, " |                                                             |");
-    ESP_LOGI(TAG, " |  1. Enter 'help', check all supported commands              |");
-    ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                          |");
-    ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                              |");
-    ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.10.0.1 -d 10.10.0.2 -t 60 -i 3' |");
-    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                    |");
-    ESP_LOGI(TAG, " |                                                             |");
-    ESP_LOGI(TAG, " ===============================================================");
+  ESP_LOGI(TAG,
+           " ============================================================");
+  ESP_LOGI(TAG,
+           " |       Steps to Test Bandwidth                             |");
+  ESP_LOGI(TAG,
+           " |                                                           |");
+  ESP_LOGI(TAG,
+           " |  1. Enter 'help', check all supported commands            |");
+  ESP_LOGI(TAG,
+           " |  2. Wait ESP32 to get IP from DHCP                        |");
+  ESP_LOGI(TAG,
+           " |  3. Server: 'iperf -u -s -i 3'                            |");
+  ESP_LOGI(TAG,
+           " |  4. Client: 'iperf -u -c 10.0.0.1 -d 10.0.0.2 -t 60 -i 3' |");
+  ESP_LOGI(TAG,
+           " |  5. ping -c 10 10.10.0.2                                  |");
+  ESP_LOGI(TAG,
+           " |                                                           |");
+  ESP_LOGI(TAG,
+           " =============================================================");
 
-    // start console REPL
-    ESP_ERROR_CHECK(esp_console_start_repl(repl));
+  // start console REPL
+  ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }
