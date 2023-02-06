@@ -20,8 +20,11 @@
 #include "nullmodem.h"
 #include "ping/ping_sock.h"
 #include <string.h>
+#include "esp_console.h"
+#include "esp_vfs_fat.h"
+#include "cmd_system.h"
+#include "cmd_iperf.h"
 
-#define BROKER_URL "mqtt://mqtt.eclipseprojects.io"
 
 static const char *TAG = "pppos_example";
 static EventGroupHandle_t event_group = NULL;
@@ -154,6 +157,23 @@ void start_ping(void) {
 }
 
 void app_main(void) {
+
+  esp_console_repl_t *repl = NULL;
+  esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
+  esp_console_dev_uart_config_t uart_config =
+      ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+#if CONFIG_EXAMPLE_STORE_HISTORY
+  initialize_filesystem();
+  repl_config.history_save_path = HISTORY_PATH;
+#endif
+  repl_config.prompt = "iperf>";
+  // init console REPL environment
+  ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
+
+  /* Register commands */
+  register_system_common();
+  register_iperf();
+
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
@@ -163,7 +183,8 @@ void app_main(void) {
 
   event_group = xEventGroupCreate();
   esp_log_level_set("esp_netif_lwip", ESP_LOG_VERBOSE);
-  esp_log_level_set("*", ESP_LOG_VERBOSE);
+  esp_log_level_set("esp-modem", ESP_LOG_VERBOSE);
+  // esp_log_level_set("*", ESP_LOG_VERBOSE);
 
   /* create dte object */
   esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
@@ -224,14 +245,23 @@ void app_main(void) {
   esp_netif_attach(esp_netif, modem_netif_adapter);
 
   /* Wait for IP address */
-  xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
-  ESP_LOGI(TAG, "Now connected, starting infinite ping session");
+  //xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
+  //ESP_LOGI(TAG, "Now connected, starting infinite ping session");
 
   /* Start ping to the other side */
-  start_ping();
+  // start_ping();
 
   /* Sleep forever */
-  while (true) {
-    vTaskDelay(1000);
-  }
+    printf("\n ===========================================================\n");
+    printf(" |       Steps to Test Bandwidth                            |\n");
+    printf(" |                                                          |\n");
+    printf(" |  1. Enter 'help', check all supported commands           |\n");
+    printf(" |  2. Wait ESP32 to get IP from DHCP                       |\n");
+    printf(" |  3. Server: 'iperf -u -s -i 3'                           |\n");
+    printf(" |  4. Client: 'iperf -u -c SERVER_IP -d OWN_IP-t 60 -i 3'  |\n");
+    printf(" |                                                          |\n");
+    printf(" ============================================================\n\n");
+
+    // start console REPL
+    ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }

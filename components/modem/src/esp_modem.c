@@ -434,9 +434,13 @@ modem_dte_t *esp_modem_dte_init(const esp_modem_dte_config_t *config)
     MODEM_CHECK(res == ESP_OK, "config uart gpio failed", err_uart_config);
     /* Set flow control threshold */
     if (config->flow_control == MODEM_FLOW_CONTROL_HW) {
+        ESP_LOGI(MODEM_TAG, "Setting up hardware flow control...");
         res = uart_set_hw_flow_ctrl(esp_dte->uart_port, UART_HW_FLOWCTRL_CTS_RTS, UART_FIFO_LEN - 8);
     } else if (config->flow_control == MODEM_FLOW_CONTROL_SW) {
+        ESP_LOGI(MODEM_TAG, "Setting up software flow control...");
         res = uart_set_sw_flow_ctrl(esp_dte->uart_port, true, 8, UART_FIFO_LEN - 8);
+    } else {
+        ESP_LOGI(MODEM_TAG, "No flow control configured.");
     }
     MODEM_CHECK(res == ESP_OK, "config uart flow control failed", err_uart_config);
     /* Install UART driver and get event queue used inside driver */
