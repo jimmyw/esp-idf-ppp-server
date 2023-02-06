@@ -144,7 +144,7 @@ static void esp_handle_uart_data(esp_modem_dte_t *esp_dte)
 {
     size_t length = 0;
     uart_get_buffered_data_len(esp_dte->uart_port, &length);
-    ESP_LOGV(MODEM_TAG, "uart_get_buffered_data_len()=%d", length);
+    //ESP_LOGV(MODEM_TAG, "uart_get_buffered_data_len()=%d", length);
     if (esp_dte->parent.dce->mode != MODEM_PPP_MODE && length) {
         // Read the data and process it using `handle_line` logic
         length = MIN(esp_dte->buffer_size - 1, length);

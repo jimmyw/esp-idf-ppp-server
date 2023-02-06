@@ -57,7 +57,7 @@ menu "Example Configuration"
         default 0
         range 0 3
         help
-            0: disable, 1: RTS, 2: CTS, 3: CTS/RTS
+            0: none, 1: software, 2: hardware
 
     config EXAMPLE_SEND_MSG
         bool "Short message (SMS)"
