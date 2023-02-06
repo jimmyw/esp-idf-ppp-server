@@ -196,7 +196,7 @@ void app_main(void) {
     ESP_LOGI(TAG, " |  2. Wait ESP32 to get IP from DHCP                        |");
     ESP_LOGI(TAG, " |  3. Server: 'iperf -u -s -i 3'                            |");
     ESP_LOGI(TAG, " |  4. Client: 'iperf -u -c 10.0.0.1 -d 10.0.0.2 -t 60 -i 3' |");
-    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                 | ")
+    ESP_LOGI(TAG, " |  5. ping -c 10 10.10.0.2                                  |");
     ESP_LOGI(TAG, " |                                                           |");
     ESP_LOGI(TAG, " =============================================================");
 
