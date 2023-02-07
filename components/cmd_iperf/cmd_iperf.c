@@ -24,8 +24,7 @@
 
 static struct {
     struct arg_str *ip;
-    struct arg_str *src_ip;
-    struct arg_lit *server;
+    struct arg_str *server;
     struct arg_lit *udp;
     struct arg_lit *version;
     struct arg_int *port;
@@ -65,24 +64,23 @@ static int eth_cmd_iperf(int argc, char **argv)
     }
 
     /* iperf -s */
-    if (iperf_args.ip->count == 0) {
+    if (iperf_args.server->count > 0) {
         cfg.flag |= IPERF_FLAG_SERVER;
+        cfg.source_ip4 = esp_ip4addr_aton(iperf_args.server->sval[0]);
     }
     /* iperf -c SERVER_ADDRESS */
-    else {
+    else if (iperf_args.ip->count > 0) {
         cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
         cfg.flag |= IPERF_FLAG_CLIENT;
+    } else {
+        ESP_LOGE(__func__, "Please speficy server or client");
+        return 0;
     }
 
     if (iperf_args.length->count == 0) {
         cfg.len_send_buf = 0;
     } else {
         cfg.len_send_buf = iperf_args.length->ival[0];
-    }
-
-    cfg.source_ip4 = esp_ip4addr_aton(iperf_args.src_ip->sval[0]);;
-    if (cfg.source_ip4 == 0) {
-        return 0;
     }
 
     /* iperf -u */
@@ -155,9 +153,7 @@ void register_iperf(void)
 
     iperf_args.ip = arg_str0("c", "client", "<ip>",
                              "run in client mode, connecting to <host>");
-    iperf_args.src_ip = arg_str0("d", "src_ip", "<src_ip>",
-                             "run in client mode, connecting from <host>");
-    iperf_args.server = arg_lit0("s", "server", "run in server mode");
+    iperf_args.server = arg_str0("s", "server", "<listen_ip>", "run in server mode <listen_ip>");
     iperf_args.udp = arg_lit0("u", "udp", "use UDP rather than TCP");
     iperf_args.version = arg_lit0("V", "ipv6_domain", "use IPV6 address rather than IPV4");
     iperf_args.port = arg_int0("p", "port", "<port>",
