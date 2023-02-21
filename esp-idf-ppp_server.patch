@@ -14,10 +14,10 @@ index 159388e80e..4aaf820643 100644
   *
   * @param[in]  esp_netif Handle to esp-netif instance
 diff --git i/components/esp_netif/lwip/esp_netif_lwip_ppp.c w/components/esp_netif/lwip/esp_netif_lwip_ppp.c
-index 21385f479f..f922f56014 100644
+index 67175df4d9..c8759c085f 100644
 --- i/components/esp_netif/lwip/esp_netif_lwip_ppp.c
 +++ w/components/esp_netif/lwip/esp_netif_lwip_ppp.c
-@@ -41,6 +41,9 @@ typedef struct lwip_peer2peer_ctx {
+@@ -33,6 +33,9 @@ typedef struct lwip_peer2peer_ctx {
      // PPP specific fields follow
      bool ppp_phase_event_enabled;
      bool ppp_error_event_enabled;
@@ -27,7 +27,7 @@ index 21385f479f..f922f56014 100644
      ppp_pcb *ppp;
  } lwip_peer2peer_ctx_t;
  
-@@ -260,12 +263,66 @@ esp_err_t esp_netif_ppp_set_auth(esp_netif_t *netif, esp_netif_auth_type_t autht
+@@ -217,12 +220,66 @@ esp_err_t esp_netif_ppp_set_auth(esp_netif_t *netif, esp_netif_auth_type_t autht
  #endif
  }
  
@@ -35,7 +35,7 @@ index 21385f479f..f922f56014 100644
 +#if PPP_SERVER
 +esp_err_t esp_netif_ppp_start_server(esp_netif_t *netif, esp_ip4_addr_t localaddr, esp_ip4_addr_t remoteaddr, esp_ip4_addr_t dnsaddr1, esp_ip4_addr_t dnsaddr2, const char *login, const char *password, int auth_req)
 +{
-+    if (!_IS_NETIF_POINT2POINT_TYPE(netif, PPP_LWIP_NETIF)) {
++    if (!ESP_NETIF_IS_POINT2POINT_TYPE(netif, PPP_LWIP_NETIF)) {
 +        return ESP_ERR_ESP_NETIF_INVALID_PARAMS;
 +    }
 +    lwip_peer2peer_ctx_t *ppp_ctx = (lwip_peer2peer_ctx_t *)netif->related_data;
@@ -94,7 +94,7 @@ index 21385f479f..f922f56014 100644
  }
  
  netif_related_data_t * esp_netif_new_ppp(esp_netif_t *esp_netif, const esp_netif_netstack_config_t *esp_netif_stack_config)
-@@ -291,7 +348,6 @@ netif_related_data_t * esp_netif_new_ppp(esp_netif_t *esp_netif, const esp_netif
+@@ -248,7 +305,6 @@ netif_related_data_t * esp_netif_new_ppp(esp_netif_t *esp_netif, const esp_netif
  #if PPP_NOTIFY_PHASE
      ppp_set_notify_phase_callback(ppp_obj->ppp, on_ppp_notify_phase);
  #endif
@@ -102,7 +102,7 @@ index 21385f479f..f922f56014 100644
  
      return (netif_related_data_t *)ppp_obj;
  }
-@@ -302,10 +358,22 @@ esp_err_t esp_netif_start_ppp(esp_netif_t *esp_netif)
+@@ -259,10 +315,22 @@ esp_err_t esp_netif_start_ppp(esp_netif_t *esp_netif)
      lwip_peer2peer_ctx_t *ppp_ctx = (lwip_peer2peer_ctx_t *)netif_related;
      assert(ppp_ctx->base.netif_type == PPP_LWIP_NETIF);
  
@@ -128,17 +128,11 @@ index 21385f479f..f922f56014 100644
          if (ppp_ctx->ppp_error_event_enabled) {
              esp_event_post(NETIF_PPP_STATUS, NETIF_PPP_CONNECT_FAILED, esp_netif, sizeof(esp_netif), 0);
          }
-diff --git i/components/json/cJSON w/components/json/cJSON
---- i/components/json/cJSON
-+++ w/components/json/cJSON
-@@ -1 +1 @@
--Subproject commit d348621ca93571343a56862df7de4ff3bc9b5667
-+Subproject commit d348621ca93571343a56862df7de4ff3bc9b5667-dirty
 diff --git i/components/lwip/Kconfig w/components/lwip/Kconfig
-index 57e8c2b045..a0858d091e 100644
+index d26af23c4b..66d9e2a2bb 100644
 --- i/components/lwip/Kconfig
 +++ w/components/lwip/Kconfig
-@@ -772,6 +772,13 @@ menu "LWIP"
+@@ -745,6 +745,13 @@ menu "LWIP"
          help
              Enable Password Authentication Protocol (PAP) support
  
@@ -153,10 +147,10 @@ index 57e8c2b045..a0858d091e 100644
          bool "Enable CHAP support"
          depends on LWIP_PPP_SUPPORT
 diff --git i/components/lwip/port/esp32/include/lwipopts.h w/components/lwip/port/esp32/include/lwipopts.h
-index bb0d371c6e..5e78122994 100644
+index 2a9d29fedc..13c0b5d5e8 100644
 --- i/components/lwip/port/esp32/include/lwipopts.h
 +++ w/components/lwip/port/esp32/include/lwipopts.h
-@@ -694,6 +694,12 @@
+@@ -1019,6 +1019,12 @@ static inline uint32_t timeout_from_offered(uint32_t lease, uint32_t min)
   */
  #define PAP_SUPPORT                     CONFIG_LWIP_PPP_PAP_SUPPORT
  
@@ -170,10 +164,10 @@ index bb0d371c6e..5e78122994 100644
   * CHAP_SUPPORT==1: Support CHAP.
   */
 diff --git i/components/lwip/sdkconfig.rename w/components/lwip/sdkconfig.rename
-index 4c2dd3148c..a6b54219db 100644
+index 527363f64b..3f1eb89d3f 100644
 --- i/components/lwip/sdkconfig.rename
 +++ w/components/lwip/sdkconfig.rename
-@@ -33,6 +33,7 @@ CONFIG_TCPIP_TASK_AFFINITY_CPU1                 CONFIG_LWIP_TCPIP_TASK_AFFINITY_
+@@ -31,6 +31,7 @@ CONFIG_TCPIP_TASK_AFFINITY_CPU1                 CONFIG_LWIP_TCPIP_TASK_AFFINITY_
  CONFIG_PPP_SUPPORT                              CONFIG_LWIP_PPP_SUPPORT
  CONFIG_PPP_NOTIFY_PHASE_SUPPORT                 CONFIG_LWIP_PPP_NOTIFY_PHASE_SUPPORT
  CONFIG_PPP_PAP_SUPPORT                          CONFIG_LWIP_PPP_PAP_SUPPORT
