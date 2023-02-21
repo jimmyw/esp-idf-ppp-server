@@ -9,4 +9,5 @@ set(srcs "src/esp_modem.c"
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS include
-                    REQUIRES driver)
+                    REQUIRES driver esp_event esp_netif)
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")

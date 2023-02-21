@@ -14,7 +14,6 @@
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_event.h"
-#include "driver/gpio.h"
 #include "argtable3/argtable3.h"
 #include "iperf.h"
 #include "sdkconfig.h"
