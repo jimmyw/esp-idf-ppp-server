@@ -11,39 +11,30 @@
 #include "cmd_system.h"
 #include "esp_console.h"
 #include "esp_log.h"
-#include "esp_modem.h"
+#include "esp_event.h"
+#include "esp_modem_api.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "esp_modem_netif.h"
-#include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
-#include "mqtt_client.h"
-#include "nullmodem.h"
+//#include "nullmodem.h"
 #include <string.h>
+#include "sdkconfig.h"
 
 static const char *TAG = "ppp_server";
 
-static void modem_event_handler(void *event_handler_arg,
-                                esp_event_base_t event_base, int32_t event_id,
-                                void *event_data) {
-  switch (event_id) {
-  case ESP_MODEM_EVENT_PPP_START:
-    ESP_LOGI(TAG, "Modem PPP Started");
-    break;
-  case ESP_MODEM_EVENT_PPP_STOP:
-    ESP_LOGI(TAG, "Modem PPP Stopped");
-    break;
-  case ESP_MODEM_EVENT_UNKNOWN:
-    ESP_LOGW(TAG, "Unknown line received: %s", (char *)event_data);
-    break;
-  default:
-    break;
-  }
-}
+
+
+#if defined(CONFIG_EXAMPLE_FLOW_CONTROL_NONE)
+#define EXAMPLE_FLOW_CONTROL ESP_MODEM_FLOW_CONTROL_NONE
+#elif defined(CONFIG_EXAMPLE_FLOW_CONTROL_SW)
+#define EXAMPLE_FLOW_CONTROL ESP_MODEM_FLOW_CONTROL_SW
+#elif defined(CONFIG_EXAMPLE_FLOW_CONTROL_HW)
+#define EXAMPLE_FLOW_CONTROL ESP_MODEM_FLOW_CONTROL_HW
+#endif
+
 
 static void on_ppp_changed(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data) {
@@ -127,29 +118,53 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
 }
 
 esp_modem_dte_config_t get_config() {
-    /* create dte object */
-  esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-  /* setup UART specific configuration based on kconfig options */
-  config.tx_io_num = CONFIG_EXAMPLE_MODEM_UART_TX_PIN;
-  config.rx_io_num = CONFIG_EXAMPLE_MODEM_UART_RX_PIN;
-  config.flow_control = CONFIG_EXAMPLE_MODEM_PPP_FLOW;
-  config.baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE;
-#if CONFIG_EXAMPLE_MODEM_PPP_FLOW != 0
-  config.rts_io_num = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN;
-  config.cts_io_num = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN;
-#endif
-  config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
-  config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
-  config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
-  config.event_task_stack_size =
-      CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_STACK_SIZE;
-  config.event_task_priority = CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_PRIORITY;
-  config.dte_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE / 2;
-  return config;
+  /* create dte object */
+  esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+  dte_config.uart_config.tx_io_num = CONFIG_EXAMPLE_MODEM_UART_TX_PIN;
+  dte_config.uart_config.rx_io_num = CONFIG_EXAMPLE_MODEM_UART_RX_PIN;
+  dte_config.uart_config.rts_io_num = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN;
+  dte_config.uart_config.cts_io_num = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN;
+  dte_config.uart_config.flow_control = EXAMPLE_FLOW_CONTROL;
+  dte_config.uart_config.baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE;
+  dte_config.uart_config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
+  dte_config.uart_config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
+  dte_config.uart_config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
+  dte_config.task_stack_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_STACK_SIZE;
+  dte_config.task_priority = CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_PRIORITY;
+  dte_config.dte_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE / 2;
+  return dte_config;
+}
+
+esp_modem_dce_t *get_dce() {
+  static esp_modem_dce_t *dce = NULL;
+  static esp_netif_t *esp_netif = NULL;
+
+  if (dce) {
+    esp_modem_destroy(dce);
+    dce = NULL;
+  }
+
+  if (esp_netif) {
+    esp_netif_destroy(esp_netif);
+    esp_netif = NULL;
+  }
+
+  esp_modem_dte_config_t dte_config = get_config();
+
+  /* Configure the PPP netif */
+  esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(CONFIG_EXAMPLE_MODEM_PPP_APN);
+  esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
+  esp_netif = esp_netif_new(&netif_ppp_config);
+  assert(esp_netif);
+
+  dce = esp_modem_new_dev(ESP_MODEM_DCE_NULLMODEM, &dte_config, &dce_config, esp_netif);
+  assert(dce);
+  return dce;
 }
 
 static int cmd_ppp_server(int argc, char **argv)
 {
+#if  0
   esp_modem_dte_config_t config = get_config();
 
   modem_dte_t *dte = esp_modem_dte_init(&config);
@@ -184,37 +199,23 @@ static int cmd_ppp_server(int argc, char **argv)
 
   /* attach the modem to the network interface */
   esp_netif_attach(esp_netif, modem_netif_adapter);
+#endif
   return 0;
 }
 
 
 static int cmd_ppp_client(int argc, char **argv)
 {
-
-  esp_modem_dte_config_t config = get_config();
-
-  modem_dte_t *dte = esp_modem_dte_init(&config);
-
-  /* Register event handler */
-  ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
-                                              ESP_EVENT_ANY_ID, NULL));
-
-  // Init netif object
-  esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
-  esp_netif_t *esp_netif = esp_netif_new(&cfg);
-  assert(esp_netif);
-
-  /* Initialize a nullmodem connection using a serial cable */
-  void *modem_netif_adapter = esp_modem_netif_setup(dte);
-  esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
-  nullmodem_init(dte);
+  esp_modem_dce_t *dce = get_dce();
 
   /* Configure ppp endpoint as client */
   ESP_LOGI(TAG, "Will configure as PPP CLIENT");
-  esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
 
-  /* attach the modem to the network interface */
-  esp_netif_attach(esp_netif, modem_netif_adapter);
+  esp_err_t err = esp_modem_set_mode(dce, ESP_MODEM_MODE_DATA);
+  if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_modem_set_mode(ESP_MODEM_MODE_DATA) failed with %d", err);
+      return 1;
+  }
   return 0;
 }
 
@@ -246,8 +247,11 @@ void app_main(void) {
 
   esp_log_level_set("esp_netif_lwip", ESP_LOG_VERBOSE);
   esp_log_level_set("esp-modem", ESP_LOG_VERBOSE);
-  // esp_log_level_set("*", ESP_LOG_VERBOSE);
-
+  esp_log_level_set("uart_terminal", ESP_LOG_VERBOSE);
+  esp_log_level_set("modem_api", ESP_LOG_VERBOSE);
+  esp_log_level_set("command_lib", ESP_LOG_VERBOSE);
+  esp_log_level_set("uart_terminal", ESP_LOG_VERBOSE);
+  esp_log_level_set("*", ESP_LOG_VERBOSE);
 
 
   const esp_console_cmd_t ppp_server = {
