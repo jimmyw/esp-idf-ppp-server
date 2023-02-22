@@ -126,17 +126,109 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
   }
 }
 
+esp_modem_dte_config_t get_config() {
+    /* create dte object */
+  esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+  /* setup UART specific configuration based on kconfig options */
+  config.tx_io_num = CONFIG_EXAMPLE_MODEM_UART_TX_PIN;
+  config.rx_io_num = CONFIG_EXAMPLE_MODEM_UART_RX_PIN;
+  config.flow_control = CONFIG_EXAMPLE_MODEM_PPP_FLOW;
+  config.baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE;
+#if CONFIG_EXAMPLE_MODEM_PPP_FLOW != 0
+  config.rts_io_num = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN;
+  config.cts_io_num = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN;
+#endif
+  config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
+  config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
+  config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
+  config.event_task_stack_size =
+      CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_STACK_SIZE;
+  config.event_task_priority = CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_PRIORITY;
+  config.dte_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE / 2;
+  return config;
+}
+
+static int cmd_ppp_server(int argc, char **argv)
+{
+  esp_modem_dte_config_t config = get_config();
+
+  modem_dte_t *dte = esp_modem_dte_init(&config);
+
+  /* Register event handler */
+  ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
+                                              ESP_EVENT_ANY_ID, NULL));
+
+  // Init netif object
+  esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
+  esp_netif_t *esp_netif = esp_netif_new(&cfg);
+  assert(esp_netif);
+
+  /* Initialize a nullmodem connection using a serial cable */
+  void *modem_netif_adapter = esp_modem_netif_setup(dte);
+  esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
+  nullmodem_init(dte);
+
+  /* Configure ppp endpoint as server */
+  ESP_LOGI(TAG, "Will configure as PPP SERVER");
+  esp_ip4_addr_t localaddr;
+  esp_netif_set_ip4_addr(&localaddr, 10, 10, 0, 1);
+  esp_ip4_addr_t remoteaddr;
+  esp_netif_set_ip4_addr(&remoteaddr, 10, 10, 0, 2);
+  esp_ip4_addr_t dnsaddr1;
+  esp_netif_set_ip4_addr(&dnsaddr1, 10, 10, 0, 1);
+  esp_ip4_addr_t dnsaddr2;
+  esp_netif_set_ip4_addr(&dnsaddr2, 0, 0, 0, 0);
+
+  esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1,
+                             dnsaddr2, "", "", 0);
+
+  /* attach the modem to the network interface */
+  esp_netif_attach(esp_netif, modem_netif_adapter);
+  return 0;
+}
+
+
+static int cmd_ppp_client(int argc, char **argv)
+{
+
+  esp_modem_dte_config_t config = get_config();
+
+  modem_dte_t *dte = esp_modem_dte_init(&config);
+
+  /* Register event handler */
+  ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
+                                              ESP_EVENT_ANY_ID, NULL));
+
+  // Init netif object
+  esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
+  esp_netif_t *esp_netif = esp_netif_new(&cfg);
+  assert(esp_netif);
+
+  /* Initialize a nullmodem connection using a serial cable */
+  void *modem_netif_adapter = esp_modem_netif_setup(dte);
+  esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
+  nullmodem_init(dte);
+
+  /* Configure ppp endpoint as client */
+  ESP_LOGI(TAG, "Will configure as PPP CLIENT");
+  esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
+
+  /* attach the modem to the network interface */
+  esp_netif_attach(esp_netif, modem_netif_adapter);
+  return 0;
+}
+
 void app_main(void) {
 
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
-  esp_console_dev_uart_config_t uart_config =
-      ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+  esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
 #if CONFIG_EXAMPLE_STORE_HISTORY
   initialize_filesystem();
   repl_config.history_save_path = HISTORY_PATH;
 #endif
   repl_config.prompt = "iperf>";
+
   // init console REPL environment
   ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
 
@@ -156,64 +248,22 @@ void app_main(void) {
   esp_log_level_set("esp-modem", ESP_LOG_VERBOSE);
   // esp_log_level_set("*", ESP_LOG_VERBOSE);
 
-  /* create dte object */
-  esp_modem_dte_config_t config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-  /* setup UART specific configuration based on kconfig options */
-  config.tx_io_num = CONFIG_EXAMPLE_MODEM_UART_TX_PIN;
-  config.rx_io_num = CONFIG_EXAMPLE_MODEM_UART_RX_PIN;
-  config.flow_control = CONFIG_EXAMPLE_MODEM_PPP_FLOW;
-  config.baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE;
-#if CONFIG_EXAMPLE_MODEM_PPP_FLOW != 0
-  config.rts_io_num = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN;
-  config.cts_io_num = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN;
-#endif
-  config.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE;
-  config.tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE;
-  config.event_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE;
-  config.event_task_stack_size =
-      CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_STACK_SIZE;
-  config.event_task_priority = CONFIG_EXAMPLE_MODEM_UART_EVENT_TASK_PRIORITY;
-  config.dte_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE / 2;
 
-  modem_dte_t *dte = esp_modem_dte_init(&config);
 
-  /* Register event handler */
-  ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
-                                              ESP_EVENT_ANY_ID, NULL));
-
-  // Init netif object
-  esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
-  esp_netif_t *esp_netif = esp_netif_new(&cfg);
-  assert(esp_netif);
-
-  /* Initialize a nullmodem connection using a serial cable */
-  void *modem_netif_adapter = esp_modem_netif_setup(dte);
-  esp_modem_netif_set_default_handlers(modem_netif_adapter, esp_netif);
-  nullmodem_init(dte);
-
-#if CONFIG_LWIP_PPP_SERVER_SUPPORT
-  /* Configure ppp endpoint as server */
-  ESP_LOGI(TAG, "Will configure as PPP SERVER");
-  esp_ip4_addr_t localaddr;
-  esp_netif_set_ip4_addr(&localaddr, 10, 10, 0, 1);
-  esp_ip4_addr_t remoteaddr;
-  esp_netif_set_ip4_addr(&remoteaddr, 10, 10, 0, 2);
-  esp_ip4_addr_t dnsaddr1;
-  esp_netif_set_ip4_addr(&dnsaddr1, 10, 10, 0, 1);
-  esp_ip4_addr_t dnsaddr2;
-  esp_netif_set_ip4_addr(&dnsaddr2, 0, 0, 0, 0);
-
-  esp_netif_ppp_start_server(esp_netif, localaddr, remoteaddr, dnsaddr1,
-                             dnsaddr2, "", "", 0);
-#else
-  /* Configure ppp endpoint as client */
-  ESP_LOGI(TAG, "Will configure as PPP CLIENT");
-  esp_netif_ppp_set_auth(esp_netif, NETIF_PPP_AUTHTYPE_NONE, NULL, NULL);
-#endif
-
-  /* attach the modem to the network interface */
-  esp_netif_attach(esp_netif, modem_netif_adapter);
-
+  const esp_console_cmd_t ppp_server = {
+      .command = "ppp_server",
+      .help = "Start ppp server",
+      .hint = NULL,
+      .func = &cmd_ppp_server,
+  };
+  ESP_ERROR_CHECK( esp_console_cmd_register(&ppp_server) );
+  const esp_console_cmd_t ppp_client = {
+      .command = "ppp_client",
+      .help = "Start ppp client",
+      .hint = NULL,
+      .func = &cmd_ppp_client,
+  };
+  ESP_ERROR_CHECK( esp_console_cmd_register(&ppp_client) );
 
   /* Sleep forever */
   ESP_LOGI(TAG,
@@ -223,7 +273,7 @@ void app_main(void) {
   ESP_LOGI(TAG,
            " |                                                           |");
   ESP_LOGI(TAG,
-           " |  1. Enter 'help', check all supported commands            |");
+           " |  1. Run ppp_server or ppp_client                          |");
   ESP_LOGI(TAG,
            " |  2. Wait ESP32 to get IP from DHCP                        |");
   ESP_LOGI(TAG,
