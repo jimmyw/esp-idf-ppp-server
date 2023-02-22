@@ -26,9 +26,6 @@
 #include <string.h>
 
 static const char *TAG = "ppp_server";
-static EventGroupHandle_t event_group = NULL;
-static const int CONNECT_BIT = BIT0;
-static const int STOP_BIT = BIT1;
 
 static void modem_event_handler(void *event_handler_arg,
                                 esp_event_base_t event_base, int32_t event_id,
@@ -39,7 +36,6 @@ static void modem_event_handler(void *event_handler_arg,
     break;
   case ESP_MODEM_EVENT_PPP_STOP:
     ESP_LOGI(TAG, "Modem PPP Stopped");
-    xEventGroupSetBits(event_group, STOP_BIT);
     break;
   case ESP_MODEM_EVENT_UNKNOWN:
     ESP_LOGW(TAG, "Unknown line received: %s", (char *)event_data);
@@ -118,7 +114,6 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
     esp_netif_get_dns_info(netif, 1, &dns_info);
     ESP_LOGI(TAG, "Name Server2: " IPSTR, IP2STR(&dns_info.ip.u_addr.ip4));
     ESP_LOGI(TAG, "~~~~~~~~~~~~~~");
-    xEventGroupSetBits(event_group, CONNECT_BIT);
 
     ESP_LOGI(TAG, "GOT ip event!!!");
   } else if (event_id == IP_EVENT_PPP_LOST_IP) {
@@ -157,7 +152,6 @@ void app_main(void) {
   ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID,
                                              &on_ppp_changed, NULL));
 
-  event_group = xEventGroupCreate();
   esp_log_level_set("esp_netif_lwip", ESP_LOG_VERBOSE);
   esp_log_level_set("esp-modem", ESP_LOG_VERBOSE);
   // esp_log_level_set("*", ESP_LOG_VERBOSE);
@@ -220,13 +214,6 @@ void app_main(void) {
   /* attach the modem to the network interface */
   esp_netif_attach(esp_netif, modem_netif_adapter);
 
-  /* Wait for IP address */
-  // xEventGroupWaitBits(event_group, CONNECT_BIT, pdTRUE, pdTRUE,
-  // portMAX_DELAY); ESP_LOGI(TAG, "Now connected, starting infinite ping
-  // session");
-
-  /* Start ping to the other side */
-  // start_ping();
 
   /* Sleep forever */
   ESP_LOGI(TAG,
