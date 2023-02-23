@@ -27,6 +27,22 @@
 
 static const char *TAG = "ppp_server_main";
 
+#define MOUNT_PATH "/data"
+#define HISTORY_PATH MOUNT_PATH "/history.txt"
+
+static void initialize_filesystem(void)
+{
+    static wl_handle_t wl_handle;
+    const esp_vfs_fat_mount_config_t mount_config = {
+        .max_files = 4,
+        .format_if_mount_failed = true
+    };
+    esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl(MOUNT_PATH, "storage", &mount_config, &wl_handle);
+    if (err != ESP_OK) {
+        return;
+    }
+}
+
 static void on_ppp_changed(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data) {
 
@@ -225,11 +241,9 @@ void app_main(void) {
   esp_console_repl_t *repl = NULL;
   esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
   esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
-#if CONFIG_EXAMPLE_STORE_HISTORY
   initialize_filesystem();
   repl_config.history_save_path = HISTORY_PATH;
-#endif
-  repl_config.prompt = "iperf>";
+  repl_config.prompt = "ppp_server>";
 
   // init console REPL environment
   ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
