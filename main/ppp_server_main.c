@@ -148,11 +148,22 @@ esp_modem_dte_config_t get_config() {
   return config;
 }
 
+static modem_dte_t *dte = NULL;
+static esp_netif_t *esp_netif = NULL;
+
+
 static int cmd_ppp_server(int argc, char **argv)
 {
+  if (esp_netif || dte) {
+    dte->deinit(dte);
+    esp_netif_destroy(esp_netif);
+    esp_netif = NULL;
+    dte = NULL;
+  }
+
   esp_modem_dte_config_t config = get_config();
 
-  modem_dte_t *dte = esp_modem_dte_init(&config);
+  dte = esp_modem_dte_init(&config);
 
   /* Register event handler */
   ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
@@ -160,7 +171,7 @@ static int cmd_ppp_server(int argc, char **argv)
 
   // Init netif object
   esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
-  esp_netif_t *esp_netif = esp_netif_new(&cfg);
+  esp_netif = esp_netif_new(&cfg);
   assert(esp_netif);
 
   /* Initialize a nullmodem connection using a serial cable */
@@ -190,10 +201,16 @@ static int cmd_ppp_server(int argc, char **argv)
 
 static int cmd_ppp_client(int argc, char **argv)
 {
+  if (esp_netif || dte) {
+    dte->deinit(dte);
+    esp_netif_destroy(esp_netif);
+    esp_netif = NULL;
+    dte = NULL;
+  }
 
   esp_modem_dte_config_t config = get_config();
 
-  modem_dte_t *dte = esp_modem_dte_init(&config);
+  dte = esp_modem_dte_init(&config);
 
   /* Register event handler */
   ESP_ERROR_CHECK(esp_modem_set_event_handler(dte, modem_event_handler,
@@ -201,7 +218,7 @@ static int cmd_ppp_client(int argc, char **argv)
 
   // Init netif object
   esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
-  esp_netif_t *esp_netif = esp_netif_new(&cfg);
+  esp_netif = esp_netif_new(&cfg);
   assert(esp_netif);
 
   /* Initialize a nullmodem connection using a serial cable */
