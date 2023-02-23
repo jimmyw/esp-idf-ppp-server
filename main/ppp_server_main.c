@@ -145,7 +145,8 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
 
 static int cmd_ppp_server(int argc, char **argv)
 {
-  ppp_link_config_t ppp_link_config = {
+  const ppp_link_config_t ppp_link_config = {
+    .type = PPP_LINK_SERVER,
     .uart = UART_NUM_1,
     .uart_config = {
         .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,
@@ -169,13 +170,13 @@ static int cmd_ppp_server(int argc, char **argv)
       .rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,
       .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,
       .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE
+    },
+    .ppp_server = {
+      .localaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1)),
+      .remoteaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 2)),
+      .dnsaddr1.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1)),
     }
   };
-
-  esp_netif_set_ip4_addr(&ppp_link_config.ppp_server.localaddr, 10, 10, 0, 1);
-  esp_netif_set_ip4_addr(&ppp_link_config.ppp_server.remoteaddr, 10, 10, 0, 2);
-  esp_netif_set_ip4_addr(&ppp_link_config.ppp_server.dnsaddr1, 10, 10, 0, 1);
-  esp_netif_set_ip4_addr(&ppp_link_config.ppp_server.dnsaddr2, 0, 0, 0, 0);
 
   ESP_LOGI(TAG, "Will configure as PPP SERVER");
   ppp_link_init(&ppp_link_config);
@@ -186,6 +187,36 @@ static int cmd_ppp_server(int argc, char **argv)
 
 static int cmd_ppp_client(int argc, char **argv)
 {
+  const ppp_link_config_t ppp_link_config = {
+    .type = PPP_LINK_CLIENT,
+    .uart = UART_NUM_1,
+    .uart_config = {
+        .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+        .source_clk = UART_SCLK_REF_TICK,
+#else
+        .source_clk = UART_SCLK_XTAL,
+#endif
+        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS
+    },
+    .io = {
+      .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,
+      .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,
+      .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,
+      .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN
+    },
+    .buffer = {
+      .rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,
+      .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,
+      .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE
+    },
+  };
+
+  ESP_LOGI(TAG, "Will configure as PPP CLIENT");
+  ppp_link_init(&ppp_link_config);
   return 0;
 }
 

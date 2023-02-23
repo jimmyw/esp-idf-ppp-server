@@ -3,6 +3,10 @@
 #include "driver/uart.h"
 
 struct ppp_link_config_s {
+    enum {
+        PPP_LINK_CLIENT,
+        PPP_LINK_SERVER,
+    } type;
     uart_port_t uart;
     uart_config_t uart_config;
     struct {
