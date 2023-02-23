@@ -248,9 +248,10 @@ void app_main(void) {
 
 
   esp_log_level_set("esp_netif_lwip", ESP_LOG_VERBOSE);
-  esp_log_level_set("ppp_task", ESP_LOG_VERBOSE);
+  esp_log_level_set("ppp_link", ESP_LOG_VERBOSE);
+  esp_log_level_set("ppp_server_main", ESP_LOG_VERBOSE);
   esp_log_level_set("esp-netif_lwip-ppp", ESP_LOG_VERBOSE);
-  esp_log_level_set("*", ESP_LOG_VERBOSE);
+  esp_log_level_set("*", ESP_LOG_INFO);
 
 
 

@@ -12,7 +12,7 @@
 #include "ppp_link.h"
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-static const char *TAG = "ppp_server";
+static const char *TAG = "ppp_link";
 static QueueHandle_t uart_event_queue = NULL;
 static int current_phase = PPP_PHASE_DEAD;
 static ppp_link_config_t config;
