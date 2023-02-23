@@ -23,7 +23,7 @@
 #include "lwip/sockets.h"
 #include "mqtt_client.h"
 #include <string.h>
-#include "ppp_server.h"
+#include "ppp_link.h"
 
 static const char *TAG = "ppp_server_main";
 
@@ -145,7 +145,7 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
 
 static int cmd_ppp_server(int argc, char **argv)
 {
-  ppp_server_init();
+  ppp_link_init();
 
   return 0;
 }

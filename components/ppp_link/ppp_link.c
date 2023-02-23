@@ -1,11 +1,6 @@
-#include "cmd_iperf.h"
-#include "cmd_ping.h"
-#include "cmd_system.h"
-#include "esp_console.h"
 #include "esp_log.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "lwip/inet.h"
@@ -14,11 +9,12 @@
 #include "driver/uart.h"
 #include "esp_netif_ppp.h"
 #include "netif/ppp/ppp.h"
-#include "ppp_server.h"
+#include "ppp_link.h"
 
 static const char *TAG = "ppp_server";
 static QueueHandle_t uart_event_queue = NULL;
 static int current_phase = PPP_PHASE_DEAD;
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 esp_err_t esp_netif_start(esp_netif_t *esp_netif);
 
@@ -128,7 +124,7 @@ static void ppp_task_thread(void *param)
 
 }
 
-void ppp_server_init() {
+void ppp_link_init() {
 
     /* Config UART */
     const uart_config_t uart_config = {
