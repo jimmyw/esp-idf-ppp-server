@@ -24,6 +24,7 @@
 #include "mqtt_client.h"
 #include <string.h>
 #include "ppp_link.h"
+#include "modbus_master.h"
 
 static const char *TAG = "ppp_server_main";
 
@@ -252,6 +253,7 @@ void app_main(void) {
   register_system_common();
   register_iperf();
   register_ping();
+  register_modbus_master();
 
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
