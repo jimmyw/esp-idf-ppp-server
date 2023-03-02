@@ -28,7 +28,10 @@ static void on_ppp_changed(void *arg, esp_event_base_t event_base,
 
 static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len)
 {
-    return uart_write_bytes(config.uart, buffer, len);
+    int written = uart_write_bytes(config.uart, buffer, len);
+    if (len != written)
+        ESP_LOGE(TAG, "Available bytes: %d written: %d", len, written);
+    return written > 0 ? ESP_OK : ESP_FAIL;
 }
 
 static void ppp_task_thread(void *param)
