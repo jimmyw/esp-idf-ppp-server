@@ -250,17 +250,19 @@ static esp_err_t slave_init(mb_communication_info_t* comm_info)
     // Set values into known state
     setup_reg_data();
 
+    ESP_LOGI(TAG, "Starting modbus slave");
+
     // Starts of modbus controller and stack
     err = mbc_slave_start();
     MB_RETURN_ON_FALSE((err == ESP_OK), ESP_ERR_INVALID_STATE,
                                         TAG,
                                         "mbc_slave_start fail, returns(0x%x).",
                                         (uint32_t)err);
-    vTaskDelay(5);
+    ESP_LOGI(TAG, "Started modbus slave");
     return err;
 }
 
-static int do_modbus_slave_connect_cmd(int argc, char **argv)
+static int do_modbus_slave_init_cmd(int argc, char **argv)
 {
 
     // Set UART log level
@@ -285,13 +287,13 @@ static int do_modbus_slave_poll_cmd(int argc, char **argv)
 
 void register_modbus_slave()
 {
-    const esp_console_cmd_t modbus_slave_connect_cmd = {
-        .command = "modbus_slave_connect",
+    const esp_console_cmd_t modbus_slave_init_cmd = {
+        .command = "modbus_slave_init",
         .help = "start modbus slave",
         .hint = NULL,
-        .func = &do_modbus_slave_connect_cmd,
+        .func = &do_modbus_slave_init_cmd,
     };
-    ESP_ERROR_CHECK(esp_console_cmd_register(&modbus_slave_connect_cmd));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&modbus_slave_init_cmd));
     const esp_console_cmd_t modbus_slave_poll_cmd = {
         .command = "modbus_slave_poll",
         .help = "poll modbus",

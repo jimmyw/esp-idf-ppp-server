@@ -25,6 +25,7 @@
 #include <string.h>
 #include "ppp_link.h"
 #include "modbus_master.h"
+#include "modbus_slave.h"
 
 static const char *TAG = "ppp_server_main";
 
@@ -254,6 +255,7 @@ void app_main(void) {
   register_iperf();
   register_ping();
   register_modbus_master();
+  register_modbus_slave();
 
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
