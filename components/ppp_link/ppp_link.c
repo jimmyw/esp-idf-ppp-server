@@ -16,6 +16,7 @@ static const char *TAG = "ppp_link";
 static QueueHandle_t uart_event_queue = NULL;
 static int current_phase = PPP_PHASE_DEAD;
 static ppp_link_config_t config;
+#define MAX_PPP_FRAME_SIZE (PPP_MAXMRU + 10) // 10 bytes of ppp framing around max 1500 bytes information
 
 esp_err_t esp_netif_start(esp_netif_t *esp_netif);
 
@@ -26,12 +27,20 @@ static void on_ppp_changed(void *arg, esp_event_base_t event_base,
   }
 }
 
-static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len)
-{
+static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len) {
+    size_t free_size = 0;
+    ESP_ERROR_CHECK(uart_get_tx_buffer_free_size(config.uart, &free_size));
+
+    if (unlikely(free_size < len)) {
+        //ESP_LOGV(TAG, "Uart tx buffer full. free_size: %d len: %d", free_size, len);
+        return ESP_FAIL;
+    }
     int written = uart_write_bytes(config.uart, buffer, len);
-    if (len != written)
-        ESP_LOGE(TAG, "Available bytes: %d written: %d", len, written);
-    return written > 0 ? ESP_OK : ESP_FAIL;
+    if (unlikely(len != written)) {
+        ESP_LOGE(TAG, "Failed to write bytes. bytes: %d free: %d written: %d", len, free_size, written);
+        abort();
+    }
+    return ESP_OK;
 }
 
 static void ppp_task_thread(void *param)
@@ -116,6 +125,9 @@ static void ppp_task_thread(void *param)
 
 esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
     config = *_config;
+
+    // Tx buffer needs to be able to contain at least 1 full frame.
+    assert(config.buffer.tx_buffer_size >= MAX_PPP_FRAME_SIZE);
 
     ESP_ERROR_CHECK(uart_param_config(config.uart, &config.uart_config));
 
