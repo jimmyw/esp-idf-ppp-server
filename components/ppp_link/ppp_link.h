@@ -5,7 +5,9 @@
 struct ppp_link_config_s {
     enum {
         PPP_LINK_CLIENT,
+#ifdef CONFIG_PPP_SERVER_SUPPORT
         PPP_LINK_SERVER,
+#endif
     } type;
     uart_port_t uart;
     uart_config_t uart_config;

@@ -62,10 +62,13 @@ static void ppp_task_thread(void *param)
     };
     ESP_ERROR_CHECK(esp_netif_ppp_set_params(esp_netif, &ppp_config));
 
+#ifdef CONFIG_PPP_SERVER_SUPPORT
     if (config.type == PPP_LINK_SERVER) {
         ESP_ERROR_CHECK(esp_netif_ppp_start_server(esp_netif, config.ppp_server.localaddr, config.ppp_server.remoteaddr, config.ppp_server.dnsaddr1,
                         config.ppp_server.dnsaddr2, config.ppp_server.login, config.ppp_server.password, config.ppp_server.auth_req));
     }
+#endif
+
     while (1) {
         uart_event_t event;
 
