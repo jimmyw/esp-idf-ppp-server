@@ -87,42 +87,32 @@ static void on_ppp_changed(void *arg, esp_event_base_t event_base,
   case NETIF_PPP_ERRORLOOPBACK:
     ESP_LOGI(TAG, "Loopback detected netif:%p", netif);
     break;
+  case NETIF_PPP_PHASE_DEAD:
+      ESP_LOGD(TAG, "Phase Dead");
+      break;
+  case NETIF_PPP_PHASE_INITIALIZE:
+      ESP_LOGD(TAG, "Phase Start");
+      break;
+  case NETIF_PPP_PHASE_ESTABLISH:
+      ESP_LOGD(TAG, "Phase Establish");
+      break;
+  case NETIF_PPP_PHASE_AUTHENTICATE:
+      ESP_LOGD(TAG, "Phase Authenticate");
+      break;
+  case NETIF_PPP_PHASE_NETWORK:
+      ESP_LOGD(TAG, "Phase Network");
+      break;
+  case NETIF_PPP_PHASE_RUNNING:
+      ESP_LOGD(TAG, "Phase Running");
+      break;
+  case NETIF_PPP_PHASE_TERMINATE:
+      ESP_LOGD(TAG, "Phase Terminate");
+      break;
+  case NETIF_PPP_PHASE_DISCONNECT:
+      ESP_LOGD(TAG, "Phase Disconnect");
+      break;
   default:
-    if (event_id >= NETIF_PP_PHASE_OFFSET) {
-        switch (event_id - NETIF_PP_PHASE_OFFSET) {
-        case PPP_PHASE_DEAD:
-            ESP_LOGD(TAG, "Phase Dead");
-            break;
-        case PPP_PHASE_INITIALIZE:
-            ESP_LOGD(TAG, "Phase Start");
-            break;
-        case PPP_PHASE_ESTABLISH:
-            ESP_LOGD(TAG, "Phase Establish");
-            break;
-        case PPP_PHASE_AUTHENTICATE:
-            ESP_LOGD(TAG, "Phase Authenticate");
-            break;
-        case PPP_PHASE_NETWORK:
-            ESP_LOGD(TAG, "Phase Network");
-            break;
-        case PPP_PHASE_RUNNING:
-            ESP_LOGD(TAG, "Phase Running");
-            break;
-        case PPP_PHASE_TERMINATE:
-            ESP_LOGD(TAG, "Phase Terminate");
-            break;
-        case PPP_PHASE_DISCONNECT:
-            ESP_LOGD(TAG, "Phase Disconnect");
-            break;
-        default:
-            ESP_LOGW(TAG, "Phase Unknown: %d", event_id - NETIF_PP_PHASE_OFFSET);
-            break;
-        }
-    }
-    else
-    {
-        ESP_LOGI(TAG, "PPP state changed event %d", event_id);
-    }
+      ESP_LOGW(TAG, "Unknown PPP event %d", event_id);
     break;
   }
 }
