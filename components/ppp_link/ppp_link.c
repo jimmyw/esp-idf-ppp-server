@@ -137,8 +137,6 @@ esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
     ESP_ERROR_CHECK(uart_set_pin(config.uart, config.io.tx, config.io.rx,
                            config.io.rts, config.io.cts));
 
-    ESP_ERROR_CHECK(uart_set_hw_flow_ctrl(config.uart, UART_HW_FLOWCTRL_CTS_RTS, UART_FIFO_LEN - 8));
-
     ESP_ERROR_CHECK(uart_driver_install(config.uart, config.buffer.rx_buffer_size, config.buffer.tx_buffer_size,
                               config.buffer.rx_queue_size, &uart_event_queue, 0));
 

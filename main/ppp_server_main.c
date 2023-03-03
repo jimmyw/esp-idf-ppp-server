@@ -164,7 +164,8 @@ static int cmd_ppp_server(int argc, char **argv)
 #else
         .source_clk = UART_SCLK_XTAL,
 #endif
-        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS
+        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,
+        .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,
     },
     .io = {
       .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,
