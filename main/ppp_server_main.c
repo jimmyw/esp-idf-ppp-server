@@ -148,7 +148,7 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
   }
 }
 
-
+#ifdef CONFIG_PPP_SERVER_SUPPORT
 static int cmd_ppp_server(int argc, char **argv)
 {
   const ppp_link_config_t ppp_link_config = {
@@ -190,7 +190,7 @@ static int cmd_ppp_server(int argc, char **argv)
 
   return 0;
 }
-
+#endif
 
 static int cmd_ppp_client(int argc, char **argv)
 {
@@ -259,7 +259,7 @@ void app_main(void) {
   esp_log_level_set("*", ESP_LOG_INFO);
 
 
-
+#ifdef CONFIG_PPP_SERVER_SUPPORT
   const esp_console_cmd_t ppp_server = {
       .command = "ppp_server",
       .help = "Start ppp server",
@@ -267,6 +267,7 @@ void app_main(void) {
       .func = &cmd_ppp_server,
   };
   ESP_ERROR_CHECK( esp_console_cmd_register(&ppp_server) );
+#endif
   const esp_console_cmd_t ppp_client = {
       .command = "ppp_client",
       .help = "Start ppp client",
