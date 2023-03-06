@@ -1,6 +1,8 @@
-
+#ifndef __PPP_LINK_H_
+#define __PPP_LINK_H_
 
 #include "driver/uart.h"
+#include "esp_netif.h"
 
 struct ppp_link_config_s {
     enum {
@@ -22,6 +24,7 @@ struct ppp_link_config_s {
         int tx_buffer_size;
         int rx_queue_size;
     } buffer;
+#ifdef CONFIG_PPP_SERVER_SUPPORT
     struct {
         esp_ip4_addr_t localaddr;
         esp_ip4_addr_t remoteaddr;
@@ -31,8 +34,11 @@ struct ppp_link_config_s {
         const char *password;
         int auth_req;
     } ppp_server;
+#endif
 };
 
 typedef struct ppp_link_config_s ppp_link_config_t;
 
 esp_err_t ppp_link_init(const ppp_link_config_t *ppp_link_config);
+
+#endif /* __PPP_LINK_H_ */
