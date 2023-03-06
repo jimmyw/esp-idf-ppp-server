@@ -24,6 +24,7 @@ struct ppp_link_config_s {
         int tx_buffer_size;
         int rx_queue_size;
     } buffer;
+#ifdef CONFIG_PPP_SERVER_SUPPORT
     struct {
         esp_ip4_addr_t localaddr;
         esp_ip4_addr_t remoteaddr;
@@ -33,6 +34,7 @@ struct ppp_link_config_s {
         const char *password;
         int auth_req;
     } ppp_server;
+#endif
 };
 
 typedef struct ppp_link_config_s ppp_link_config_t;
