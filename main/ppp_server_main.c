@@ -87,42 +87,32 @@ static void on_ppp_changed(void *arg, esp_event_base_t event_base,
   case NETIF_PPP_ERRORLOOPBACK:
     ESP_LOGI(TAG, "Loopback detected netif:%p", netif);
     break;
+  case NETIF_PPP_PHASE_DEAD:
+      ESP_LOGD(TAG, "Phase Dead");
+      break;
+  case NETIF_PPP_PHASE_INITIALIZE:
+      ESP_LOGD(TAG, "Phase Start");
+      break;
+  case NETIF_PPP_PHASE_ESTABLISH:
+      ESP_LOGD(TAG, "Phase Establish");
+      break;
+  case NETIF_PPP_PHASE_AUTHENTICATE:
+      ESP_LOGD(TAG, "Phase Authenticate");
+      break;
+  case NETIF_PPP_PHASE_NETWORK:
+      ESP_LOGD(TAG, "Phase Network");
+      break;
+  case NETIF_PPP_PHASE_RUNNING:
+      ESP_LOGD(TAG, "Phase Running");
+      break;
+  case NETIF_PPP_PHASE_TERMINATE:
+      ESP_LOGD(TAG, "Phase Terminate");
+      break;
+  case NETIF_PPP_PHASE_DISCONNECT:
+      ESP_LOGD(TAG, "Phase Disconnect");
+      break;
   default:
-    if (event_id >= NETIF_PP_PHASE_OFFSET) {
-        switch (event_id - NETIF_PP_PHASE_OFFSET) {
-        case PPP_PHASE_DEAD:
-            ESP_LOGD(TAG, "Phase Dead");
-            break;
-        case PPP_PHASE_INITIALIZE:
-            ESP_LOGD(TAG, "Phase Start");
-            break;
-        case PPP_PHASE_ESTABLISH:
-            ESP_LOGD(TAG, "Phase Establish");
-            break;
-        case PPP_PHASE_AUTHENTICATE:
-            ESP_LOGD(TAG, "Phase Authenticate");
-            break;
-        case PPP_PHASE_NETWORK:
-            ESP_LOGD(TAG, "Phase Network");
-            break;
-        case PPP_PHASE_RUNNING:
-            ESP_LOGD(TAG, "Phase Running");
-            break;
-        case PPP_PHASE_TERMINATE:
-            ESP_LOGD(TAG, "Phase Terminate");
-            break;
-        case PPP_PHASE_DISCONNECT:
-            ESP_LOGD(TAG, "Phase Disconnect");
-            break;
-        default:
-            ESP_LOGW(TAG, "Phase Unknown: %d", event_id - NETIF_PP_PHASE_OFFSET);
-            break;
-        }
-    }
-    else
-    {
-        ESP_LOGI(TAG, "PPP state changed event %d", event_id);
-    }
+      ESP_LOGW(TAG, "Unknown PPP event %d", event_id);
     break;
   }
 }
@@ -158,7 +148,7 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
   }
 }
 
-
+#ifdef CONFIG_PPP_SERVER_SUPPORT
 static int cmd_ppp_server(int argc, char **argv)
 {
   const ppp_link_config_t ppp_link_config = {
@@ -174,7 +164,8 @@ static int cmd_ppp_server(int argc, char **argv)
 #else
         .source_clk = UART_SCLK_XTAL,
 #endif
-        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS
+        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,
+        .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,
     },
     .io = {
       .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,
@@ -199,7 +190,7 @@ static int cmd_ppp_server(int argc, char **argv)
 
   return 0;
 }
-
+#endif
 
 static int cmd_ppp_client(int argc, char **argv)
 {
@@ -268,7 +259,7 @@ void app_main(void) {
   esp_log_level_set("*", ESP_LOG_INFO);
 
 
-
+#ifdef CONFIG_PPP_SERVER_SUPPORT
   const esp_console_cmd_t ppp_server = {
       .command = "ppp_server",
       .help = "Start ppp server",
@@ -276,6 +267,7 @@ void app_main(void) {
       .func = &cmd_ppp_server,
   };
   ESP_ERROR_CHECK( esp_console_cmd_register(&ppp_server) );
+#endif
   const esp_console_cmd_t ppp_client = {
       .command = "ppp_client",
       .help = "Start ppp client",

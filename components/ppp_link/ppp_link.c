@@ -62,10 +62,13 @@ static void ppp_task_thread(void *param)
     };
     ESP_ERROR_CHECK(esp_netif_ppp_set_params(esp_netif, &ppp_config));
 
+#ifdef CONFIG_PPP_SERVER_SUPPORT
     if (config.type == PPP_LINK_SERVER) {
         ESP_ERROR_CHECK(esp_netif_ppp_start_server(esp_netif, config.ppp_server.localaddr, config.ppp_server.remoteaddr, config.ppp_server.dnsaddr1,
                         config.ppp_server.dnsaddr2, config.ppp_server.login, config.ppp_server.password, config.ppp_server.auth_req));
     }
+#endif
+
     while (1) {
         uart_event_t event;
 
@@ -133,8 +136,6 @@ esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
 
     ESP_ERROR_CHECK(uart_set_pin(config.uart, config.io.tx, config.io.rx,
                            config.io.rts, config.io.cts));
-
-    ESP_ERROR_CHECK(uart_set_hw_flow_ctrl(config.uart, UART_HW_FLOWCTRL_CTS_RTS, UART_FIFO_LEN - 8));
 
     ESP_ERROR_CHECK(uart_driver_install(config.uart, config.buffer.rx_buffer_size, config.buffer.tx_buffer_size,
                               config.buffer.rx_queue_size, &uart_event_queue, 0));
