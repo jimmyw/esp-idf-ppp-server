@@ -1,4 +1,5 @@
-
+#ifndef __PPP_LINK_H_
+#define __PPP_LINK_H_
 
 #include "driver/uart.h"
 
@@ -36,3 +37,5 @@ struct ppp_link_config_s {
 typedef struct ppp_link_config_s ppp_link_config_t;
 
 esp_err_t ppp_link_init(const ppp_link_config_t *ppp_link_config);
+
+#endif /* __PPP_LINK_H_ */
