@@ -2,6 +2,7 @@
 #define __PPP_LINK_H_
 
 #include "driver/uart.h"
+#include "esp_netif.h"
 
 struct ppp_link_config_s {
     enum {
