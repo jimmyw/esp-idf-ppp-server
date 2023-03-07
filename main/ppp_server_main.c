@@ -30,6 +30,37 @@ static const char *TAG = "ppp_server_main";
 #define MOUNT_PATH "/data"
 #define HISTORY_PATH MOUNT_PATH "/history.txt"
 
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#define UART_CLK UART_SCLK_REF_TICK
+#else
+#define UART_CLK UART_SCLK_XTAL
+#endif
+
+#define DEFAULT_LINK_CONFIG {\
+    .type = PPP_LINK_CLIENT,\
+    .uart = UART_NUM_1,\
+    .uart_config = {\
+        .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,\
+        .data_bits = UART_DATA_8_BITS,\
+        .parity = UART_PARITY_DISABLE,\
+        .stop_bits = UART_STOP_BITS_1,\
+        .source_clk = UART_CLK,\
+        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,\
+        .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,\
+    },\
+    .io = {\
+      .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,\
+      .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,\
+      .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,\
+      .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN\
+    },\
+    .buffer = {\
+      .rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,\
+      .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,\
+      .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE\
+    },\
+  };
+
 static void initialize_filesystem(void)
 {
     static wl_handle_t wl_handle;
@@ -119,14 +150,13 @@ static void on_ppp_changed(void *arg, esp_event_base_t event_base,
 
 static void on_ip_event(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data) {
-  ESP_LOGD(TAG, "IP event! %d", event_id);
   if (event_id == IP_EVENT_PPP_GOT_IP) {
     esp_netif_dns_info_t dns_info;
 
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     esp_netif_t *netif = event->esp_netif;
 
-    ESP_LOGI(TAG, "Modem Connect to PPP Server");
+    ESP_LOGI(TAG, "Modem Connect to PPP endpoint");
     ESP_LOGI(TAG, "~~~~~~~~~~~~~~");
     ESP_LOGI(TAG, "IP          : " IPSTR, IP2STR(&event->ip_info.ip));
     ESP_LOGI(TAG, "Netmask     : " IPSTR, IP2STR(&event->ip_info.netmask));
@@ -142,49 +172,22 @@ static void on_ip_event(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "Modem Disconnect from PPP Server");
   } else if (event_id == IP_EVENT_GOT_IP6) {
     ESP_LOGI(TAG, "GOT IPv6 event!");
-
     ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
     ESP_LOGI(TAG, "Got IPv6 address " IPV6STR, IPV62STR(event->ip6_info.ip));
+  } else {
+      ESP_LOGD(TAG, "IP event! %d", event_id);
   }
 }
 
 #ifdef CONFIG_PPP_SERVER_SUPPORT
 static int cmd_ppp_server(int argc, char **argv)
 {
-  const ppp_link_config_t ppp_link_config = {
-    .type = PPP_LINK_SERVER,
-    .uart = UART_NUM_1,
-    .uart_config = {
-        .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
-        .source_clk = UART_SCLK_REF_TICK,
-#else
-        .source_clk = UART_SCLK_XTAL,
-#endif
-        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,
-        .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,
-    },
-    .io = {
-      .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,
-      .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,
-      .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,
-      .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN
-    },
-    .buffer = {
-      .rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,
-      .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,
-      .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE
-    },
-    .ppp_server = {
-      .localaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1)),
-      .remoteaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 2)),
-      .dnsaddr1.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1)),
-    }
-  };
-
+  ppp_link_config_t ppp_link_config = DEFAULT_LINK_CONFIG;
+  ppp_link_config.type = PPP_LINK_SERVER;
+  ppp_link_config.ppp_server.localaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1));
+  ppp_link_config.ppp_server.remoteaddr.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 2));
+  ppp_link_config.ppp_server.dnsaddr1.addr = esp_netif_htonl(esp_netif_ip4_makeu32(10, 10, 0, 1));
+    
   ESP_LOGI(TAG, "Will configure as PPP SERVER");
   ppp_link_init(&ppp_link_config);
 
@@ -194,34 +197,7 @@ static int cmd_ppp_server(int argc, char **argv)
 
 static int cmd_ppp_client(int argc, char **argv)
 {
-  const ppp_link_config_t ppp_link_config = {
-    .type = PPP_LINK_CLIENT,
-    .uart = UART_NUM_1,
-    .uart_config = {
-        .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
-        .source_clk = UART_SCLK_REF_TICK,
-#else
-        .source_clk = UART_SCLK_XTAL,
-#endif
-        .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,
-        .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,
-    },
-    .io = {
-      .tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,
-      .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,
-      .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,
-      .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN
-    },
-    .buffer = {
-      .rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,
-      .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,
-      .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE
-    },
-  };
+  ppp_link_config_t ppp_link_config = DEFAULT_LINK_CONFIG;
 
   ESP_LOGI(TAG, "Will configure as PPP CLIENT");
   ppp_link_init(&ppp_link_config);
