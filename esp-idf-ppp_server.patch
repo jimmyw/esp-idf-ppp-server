@@ -14,7 +14,7 @@ index 159388e80e..4aaf820643 100644
   *
   * @param[in]  esp_netif Handle to esp-netif instance
 diff --git i/components/esp_netif/lwip/esp_netif_lwip_ppp.c w/components/esp_netif/lwip/esp_netif_lwip_ppp.c
-index 67175df4d9..c8759c085f 100644
+index 67175df4d9..35a72216fe 100644
 --- i/components/esp_netif/lwip/esp_netif_lwip_ppp.c
 +++ w/components/esp_netif/lwip/esp_netif_lwip_ppp.c
 @@ -33,6 +33,9 @@ typedef struct lwip_peer2peer_ctx {
@@ -27,7 +27,7 @@ index 67175df4d9..c8759c085f 100644
      ppp_pcb *ppp;
  } lwip_peer2peer_ctx_t;
  
-@@ -217,12 +220,66 @@ esp_err_t esp_netif_ppp_set_auth(esp_netif_t *netif, esp_netif_auth_type_t autht
+@@ -217,6 +220,58 @@ esp_err_t esp_netif_ppp_set_auth(esp_netif_t *netif, esp_netif_auth_type_t autht
  #endif
  }
  
@@ -76,6 +76,9 @@ index 67175df4d9..c8759c085f 100644
 +    /* Make sure we listen instead of connect on start */
 +    ppp_ctx->ppp_server = 1;
 +
++    /* Dont use this interface as a dns */
++    ppp_set_usepeerdns(ppp_ctx->ppp, 0);
++    
 +    return ESP_OK;
 +}
 +#endif
@@ -83,26 +86,7 @@ index 67175df4d9..c8759c085f 100644
  void esp_netif_ppp_set_default_netif(netif_related_data_t *netif_related)
  {
      lwip_peer2peer_ctx_t *ppp_ctx = (lwip_peer2peer_ctx_t *)netif_related;
-     assert(ppp_ctx->base.netif_type == PPP_LWIP_NETIF);
- 
-+    // Set PPP as de default output interface
-     ppp_set_default(ppp_ctx->ppp);
-+
-+    // Register remote dns servers using dns_setserver()
-+    ppp_set_usepeerdns(ppp_ctx->ppp, 1);
-+
- }
- 
- netif_related_data_t * esp_netif_new_ppp(esp_netif_t *esp_netif, const esp_netif_netstack_config_t *esp_netif_stack_config)
-@@ -248,7 +305,6 @@ netif_related_data_t * esp_netif_new_ppp(esp_netif_t *esp_netif, const esp_netif
- #if PPP_NOTIFY_PHASE
-     ppp_set_notify_phase_callback(ppp_obj->ppp, on_ppp_notify_phase);
- #endif
--    ppp_set_usepeerdns(ppp_obj->ppp, 1);
- 
-     return (netif_related_data_t *)ppp_obj;
- }
-@@ -259,10 +315,22 @@ esp_err_t esp_netif_start_ppp(esp_netif_t *esp_netif)
+@@ -259,10 +314,22 @@ esp_err_t esp_netif_start_ppp(esp_netif_t *esp_netif)
      lwip_peer2peer_ctx_t *ppp_ctx = (lwip_peer2peer_ctx_t *)netif_related;
      assert(ppp_ctx->base.netif_type == PPP_LWIP_NETIF);
  
