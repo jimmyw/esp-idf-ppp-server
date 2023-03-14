@@ -18,7 +18,6 @@ static int current_phase = PPP_PHASE_DEAD;
 static ppp_link_config_t config;
 #define MAX_PPP_FRAME_SIZE (PPP_MAXMRU + 10) // 10 bytes of ppp framing around max 1500 bytes information
 
-esp_err_t esp_netif_start(esp_netif_t *esp_netif);
 
 static void on_ppp_changed(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data) {
@@ -121,7 +120,7 @@ static void ppp_task_thread(void *param)
 
         if (current_phase == PPP_PHASE_DEAD) {
             ESP_LOGI(TAG, "Connection is dead, restarting ppp interface");
-            ESP_ERROR_CHECK(esp_netif_start(esp_netif));
+            esp_netif_action_start(esp_netif, NULL, 0, NULL);
         }
     }
 }
