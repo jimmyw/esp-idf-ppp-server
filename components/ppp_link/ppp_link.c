@@ -10,8 +10,8 @@
 #include "esp_netif_ppp.h"
 #include "netif/ppp/ppp.h"
 #include "ppp_link.h"
+#include <sys/param.h>
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 static const char *TAG = "ppp_link";
 static QueueHandle_t uart_event_queue = NULL;
 static int current_phase = PPP_PHASE_DEAD;
