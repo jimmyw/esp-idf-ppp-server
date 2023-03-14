@@ -51,6 +51,9 @@ static void ppp_task_thread(void *param)
     esp_netif_t *esp_netif = esp_netif_new(&cfg);
     assert(esp_netif);
 
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, esp_netif_action_connected, esp_netif));
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, esp_netif_action_disconnected, esp_netif));
+
     const esp_netif_driver_ifconfig_t driver_ifconfig = {
         .driver_free_rx_buffer = NULL,
         .transmit = on_ppp_transmit,
