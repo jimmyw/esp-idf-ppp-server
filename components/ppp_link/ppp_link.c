@@ -87,7 +87,7 @@ static void ppp_task_thread(void *param)
 
                     length = MIN(sizeof(buffer), length);
                     size_t read_length = uart_read_bytes(config.uart, buffer, length, portMAX_DELAY);
-                    if (read_length) {
+                    if (read_length > 0) {
                         esp_err_t res = esp_netif_receive(esp_netif, buffer, read_length, NULL);
                         if (res != ESP_OK) {
                             ESP_LOGE(TAG, "esp_netif_receive error %d", res);
