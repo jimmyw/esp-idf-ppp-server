@@ -1,16 +1,19 @@
-#include "esp_log.h"
+#include "ppp_link.h"
+#include <sys/param.h>
+
 #include "esp_event.h"
+#include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_netif_ppp.h"
+
+#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
-#include "driver/uart.h"
-#include "esp_netif_ppp.h"
 #include "netif/ppp/ppp.h"
-#include "ppp_link.h"
-#include <sys/param.h>
 
 #define PPP_LINK_TASK_STACK_SIZE (3 * 1024)
 #define PPP_LINK_TASK_PRIO 100
@@ -22,14 +25,15 @@ static QueueHandle_t uart_event_queue;
 static int current_phase = PPP_PHASE_DEAD;
 static ppp_link_config_t config;
 
-static void on_ppp_changed(void *arg, esp_event_base_t event_base,
-                           int32_t event_id, void *event_data) {
+static void on_ppp_changed(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
     if (event_id >= NETIF_PP_PHASE_OFFSET) {
         current_phase = event_id - NETIF_PP_PHASE_OFFSET;
     }
 }
 
-static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len) {
+static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len)
+{
     size_t free_size = 0;
     ESP_ERROR_CHECK(uart_get_tx_buffer_free_size(config.uart, &free_size));
 
@@ -51,8 +55,8 @@ static void ppp_task_thread(void *param)
     esp_netif_t *esp_netif = esp_netif_new(&cfg);
     assert(esp_netif);
 
-	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, esp_netif_action_connected, esp_netif));
-	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, esp_netif_action_disconnected, esp_netif));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, esp_netif_action_connected, esp_netif));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, esp_netif_action_disconnected, esp_netif));
 
     const esp_netif_driver_ifconfig_t driver_ifconfig = {
         .driver_free_rx_buffer = NULL,
@@ -61,16 +65,14 @@ static void ppp_task_thread(void *param)
     ESP_ERROR_CHECK(esp_netif_set_driver_config(esp_netif, &driver_ifconfig));
 
     // enable both events, so we could notify the modem layer if an error occurred/state changed
-    const esp_netif_ppp_config_t ppp_config = {
-            .ppp_error_event_enabled = true,
-            .ppp_phase_event_enabled = true
-    };
+    const esp_netif_ppp_config_t ppp_config = {.ppp_error_event_enabled = true, .ppp_phase_event_enabled = true};
     ESP_ERROR_CHECK(esp_netif_ppp_set_params(esp_netif, &ppp_config));
 
 #ifdef CONFIG_PPP_SERVER_SUPPORT
     if (config.type == PPP_LINK_SERVER) {
         ESP_ERROR_CHECK(esp_netif_ppp_start_server(esp_netif, config.ppp_server.localaddr, config.ppp_server.remoteaddr, config.ppp_server.dnsaddr1,
-                        config.ppp_server.dnsaddr2, config.ppp_server.login, config.ppp_server.password, config.ppp_server.auth_req));
+                                                   config.ppp_server.dnsaddr2, config.ppp_server.login, config.ppp_server.password,
+                                                   config.ppp_server.auth_req));
     }
 #endif
 
@@ -80,7 +82,7 @@ static void ppp_task_thread(void *param)
         if (xQueueReceive(uart_event_queue, &event, pdMS_TO_TICKS(100))) {
             switch (event.type) {
             case UART_DATA:
-                while(true) {
+                while (true) {
                     char buffer[512];
                     size_t length = 0;
 
@@ -131,7 +133,8 @@ static void ppp_task_thread(void *param)
     }
 }
 
-esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
+esp_err_t ppp_link_init(const ppp_link_config_t *_config)
+{
     config = *_config;
 
     // Tx buffer needs to be able to contain at least 1 full frame.
@@ -139,21 +142,18 @@ esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
 
     ESP_ERROR_CHECK(uart_param_config(config.uart, &config.uart_config));
 
-    ESP_ERROR_CHECK(uart_set_pin(config.uart, config.io.tx, config.io.rx,
-                           config.io.rts, config.io.cts));
+    ESP_ERROR_CHECK(uart_set_pin(config.uart, config.io.tx, config.io.rx, config.io.rts, config.io.cts));
 
-    ESP_ERROR_CHECK(uart_driver_install(config.uart, config.buffer.rx_buffer_size, config.buffer.tx_buffer_size,
-                              config.buffer.rx_queue_size, &uart_event_queue, 0));
+    ESP_ERROR_CHECK(
+        uart_driver_install(config.uart, config.buffer.rx_buffer_size, config.buffer.tx_buffer_size, config.buffer.rx_queue_size, &uart_event_queue, 0));
 
     ESP_ERROR_CHECK(uart_set_rx_timeout(config.uart, 1));
 
     ESP_ERROR_CHECK(uart_set_rx_full_threshold(config.uart, 64));
 
+    ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, &on_ppp_changed, NULL));
 
-    ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID,
-                                             &on_ppp_changed, NULL));
-
-	BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", PPP_LINK_TASK_STACK_SIZE, NULL, PPP_LINK_TASK_PRIO, NULL);
+    BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", PPP_LINK_TASK_STACK_SIZE, NULL, PPP_LINK_TASK_PRIO, NULL);
     assert(ret == pdTRUE);
 
     return ESP_OK;
