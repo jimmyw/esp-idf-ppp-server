@@ -34,7 +34,7 @@ static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len) {
     ESP_ERROR_CHECK(uart_get_tx_buffer_free_size(config.uart, &free_size));
 
     if (unlikely(free_size < len)) {
-        ESP_LOGW(TAG, "Uart TX buffer full. free_size: %d len: %d", free_size, len);
+        // ESP_LOGW(TAG, "Uart TX buffer full. free_size: %d len: %d", free_size, len);
         return ESP_FAIL;
     }
     int written = uart_write_bytes(config.uart, buffer, len);
