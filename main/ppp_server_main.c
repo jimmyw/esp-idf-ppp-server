@@ -38,28 +38,30 @@ static const char *TAG = "ppp_server_main";
 #define UART_CLK UART_SCLK_XTAL
 #endif
 
-#define DEFAULT_LINK_CONFIG                                                      \
-    {                                                                            \
-        .type = PPP_LINK_CLIENT,                                                 \
-        .uart = UART_NUM_1,                                                      \
-        .uart_config =                                                           \
-            {                                                                    \
-                .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,                  \
-                .data_bits = UART_DATA_8_BITS,                                   \
-                .parity = UART_PARITY_DISABLE,                                   \
-                .stop_bits = UART_STOP_BITS_1,                                   \
-                .source_clk = UART_CLK,                                          \
-                .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,                           \
-                .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,                        \
-            },                                                                   \
-        .io = {.tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,                           \
-               .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,                           \
-               .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,                         \
-               .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN},                        \
-        .buffer = {.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,   \
-                   .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,   \
-                   .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE}, \
-    };
+#define DEFAULT_LINK_CONFIG                                                   \
+    {.type = PPP_LINK_CLIENT,                                                 \
+     .uart = UART_NUM_1,                                                      \
+     .uart_config =                                                           \
+         {                                                                    \
+             .baud_rate = CONFIG_EXAMPLE_MODEM_PPP_BAUDRATE,                  \
+             .data_bits = UART_DATA_8_BITS,                                   \
+             .parity = UART_PARITY_DISABLE,                                   \
+             .stop_bits = UART_STOP_BITS_1,                                   \
+             .source_clk = UART_CLK,                                          \
+             .flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS,                           \
+             .rx_flow_ctrl_thresh = UART_FIFO_LEN - 8,                        \
+         },                                                                   \
+     .io = {.tx = CONFIG_EXAMPLE_MODEM_UART_TX_PIN,                           \
+            .rx = CONFIG_EXAMPLE_MODEM_UART_RX_PIN,                           \
+            .rts = CONFIG_EXAMPLE_MODEM_UART_RTS_PIN,                         \
+            .cts = CONFIG_EXAMPLE_MODEM_UART_CTS_PIN},                        \
+     .buffer = {.rx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_RX_BUFFER_SIZE,   \
+                .tx_buffer_size = CONFIG_EXAMPLE_MODEM_UART_TX_BUFFER_SIZE,   \
+                .rx_queue_size = CONFIG_EXAMPLE_MODEM_UART_EVENT_QUEUE_SIZE}, \
+     .task = {                                                                \
+         .stack_size = (3 * 1024),                                            \
+         .prio = 100,                                                         \
+     }};
 
 static void initialize_filesystem(void)
 {

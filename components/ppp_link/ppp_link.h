@@ -27,6 +27,10 @@ struct ppp_link_config_s {
         int tx_buffer_size;
         int rx_queue_size;
     } buffer;
+    struct {
+        int stack_size;
+        int prio;
+    } task;
 #ifdef CONFIG_PPP_SERVER_SUPPORT
     struct {
         esp_ip4_addr_t localaddr;
@@ -64,6 +68,10 @@ struct ppp_link_config_s {
         .tx_buffer_size = 2048,                     \
         .rx_queue_size = 30,                        \
     },                                              \
+    .task = {                                       \
+        .stack_size = (3 * 1024),                   \
+        .prio = 100,                                \
+    } \
 };
 // clang-format on
 

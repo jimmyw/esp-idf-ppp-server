@@ -15,9 +15,6 @@
 #include "lwip/sockets.h"
 #include "netif/ppp/ppp.h"
 
-#define PPP_LINK_TASK_STACK_SIZE (3 * 1024)
-#define PPP_LINK_TASK_PRIO 100
-
 #define MAX_PPP_FRAME_SIZE (PPP_MAXMRU + 10) // 10 bytes of ppp framing around max 1500 bytes information
 
 static const char *TAG = "ppp_link";
@@ -153,7 +150,7 @@ esp_err_t ppp_link_init(const ppp_link_config_t *_config)
 
     ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, &on_ppp_changed, NULL));
 
-    BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", PPP_LINK_TASK_STACK_SIZE, NULL, PPP_LINK_TASK_PRIO, NULL);
+    BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", config.task.stack_size, NULL, config.task.prio, NULL);
     assert(ret == pdTRUE);
 
     return ESP_OK;
