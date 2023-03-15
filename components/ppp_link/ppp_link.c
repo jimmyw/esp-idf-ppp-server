@@ -10,21 +10,23 @@
 #include "esp_netif_ppp.h"
 #include "netif/ppp/ppp.h"
 #include "ppp_link.h"
+#include <sys/param.h>
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-static const char *TAG = "ppp_link";
-static QueueHandle_t uart_event_queue = NULL;
-static int current_phase = PPP_PHASE_DEAD;
-static ppp_link_config_t config;
+#define PPP_LINK_TASK_STACK_SIZE (3 * 1024)
+#define PPP_LINK_TASK_PRIO 100
+
 #define MAX_PPP_FRAME_SIZE (PPP_MAXMRU + 10) // 10 bytes of ppp framing around max 1500 bytes information
 
-esp_err_t esp_netif_start(esp_netif_t *esp_netif);
+static const char *TAG = "ppp_link";
+static QueueHandle_t uart_event_queue;
+static int current_phase = PPP_PHASE_DEAD;
+static ppp_link_config_t config;
 
 static void on_ppp_changed(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data) {
-  if (event_id >= NETIF_PP_PHASE_OFFSET) {
-    current_phase = event_id - NETIF_PP_PHASE_OFFSET;
-  }
+    if (event_id >= NETIF_PP_PHASE_OFFSET) {
+        current_phase = event_id - NETIF_PP_PHASE_OFFSET;
+    }
 }
 
 static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len) {
@@ -32,7 +34,7 @@ static esp_err_t on_ppp_transmit(void *h, void *buffer, size_t len) {
     ESP_ERROR_CHECK(uart_get_tx_buffer_free_size(config.uart, &free_size));
 
     if (unlikely(free_size < len)) {
-        //ESP_LOGV(TAG, "Uart tx buffer full. free_size: %d len: %d", free_size, len);
+        ESP_LOGW(TAG, "Uart TX buffer full. free_size: %d len: %d", free_size, len);
         return ESP_FAIL;
     }
     int written = uart_write_bytes(config.uart, buffer, len);
@@ -48,6 +50,9 @@ static void ppp_task_thread(void *param)
     const esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&cfg);
     assert(esp_netif);
+
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, esp_netif_action_connected, esp_netif));
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, esp_netif_action_disconnected, esp_netif));
 
     const esp_netif_driver_ifconfig_t driver_ifconfig = {
         .driver_free_rx_buffer = NULL,
@@ -82,10 +87,10 @@ static void ppp_task_thread(void *param)
                     uart_get_buffered_data_len(config.uart, &length);
                     if (!length)
                         break;
-                    //ESP_LOGV(TAG, "uart_get_buffered_data_len()=%d", length);
+
                     length = MIN(sizeof(buffer), length);
                     size_t read_length = uart_read_bytes(config.uart, buffer, length, portMAX_DELAY);
-                    if (read_length) {
+                    if (read_length > 0) {
                         esp_err_t res = esp_netif_receive(esp_netif, buffer, read_length, NULL);
                         if (res != ESP_OK) {
                             ESP_LOGE(TAG, "esp_netif_receive error %d", res);
@@ -121,7 +126,7 @@ static void ppp_task_thread(void *param)
 
         if (current_phase == PPP_PHASE_DEAD) {
             ESP_LOGI(TAG, "Connection is dead, restarting ppp interface");
-            ESP_ERROR_CHECK(esp_netif_start(esp_netif));
+            esp_netif_action_start(esp_netif, NULL, 0, NULL);
         }
     }
 }
@@ -148,7 +153,7 @@ esp_err_t ppp_link_init(const ppp_link_config_t *_config) {
     ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID,
                                              &on_ppp_changed, NULL));
 
-    BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", 1024 * 3, NULL, 100, NULL);
+	BaseType_t ret = xTaskCreate(ppp_task_thread, "ppp_task", PPP_LINK_TASK_STACK_SIZE, NULL, PPP_LINK_TASK_PRIO, NULL);
     assert(ret == pdTRUE);
 
     return ESP_OK;
