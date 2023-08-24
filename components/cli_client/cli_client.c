@@ -71,10 +71,11 @@ int cli_client(const char *payload)
 static int cmd_cli_client(int argc, char **argv)
 {
     // Concat all argument parts into one string
-    char buffer[512] = {};
+    char buffer[config.client.max_cmd_len];
+    memset(buffer, 0, config.client.max_cmd_len);
     for (int i = 1; i < argc; i++) {
         if ((sizeof(buffer) - strlen(buffer)) <= (strlen(argv[i]) + 2)) {
-            printf("Argument to long, limit %d\n", sizeof(buffer));
+            printf("Argument to long, limit %d\n", config.client.max_cmd_len);
             return 20;
         }
         strcat(buffer, argv[i]);
@@ -89,7 +90,7 @@ esp_err_t cli_client_init(const cli_client_config_t *_config)
 {
     config = *_config;
     const esp_console_cmd_t cli_client_cmd = {
-        .command = "cli_client",
+        .command = config.client.cmd,
         .help = "Run cli client command",
         .hint = NULL,
         .func = &cmd_cli_client,
