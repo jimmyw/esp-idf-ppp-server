@@ -10,6 +10,7 @@ struct cli_server_config_s {
     } task;
     struct {
         int port;
+        int max_arg_len;
     } server;
 };
 
@@ -20,7 +21,8 @@ struct cli_server_config_s {
         .prio = 100,                  \
     },                                \
     .server = {                       \
-        .port = 1000                  \
+        .port = 1000,                 \
+        .max_arg_len = 1024,          \
     }                                 \
   };
 
