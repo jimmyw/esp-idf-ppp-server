@@ -5,15 +5,26 @@
 #include "esp_log.h"
 #include "esp_system.h"
 
+static void sanitize(char *src)
+{
+    char *dst = src;
+    for (int c = (int)*src; c != 0; src++, c = (int)*src) {
+        if (isprint(c)) {
+            *dst = (char)c;
+            ++dst;
+        }
+    }
+    *dst = 0;
+}
+
 int run_multiple_commands(char *command_line, bool pre_print_command)
 {
     char *saveptr = NULL;
     char *token = strtok_r(command_line, ";", &saveptr);
     while (token) {
         int ret;
-        // Skip leading spaces.
-        while (*token == ' ')
-            token++;
+
+        sanitize(token);
 
         if (pre_print_command)
             printf("esp32> %s\n", token);
