@@ -16,7 +16,7 @@ struct cli_server_config_s {
 // clang-format off
 #define DEFAULT_CLI_SERVER_CONFIG {   \
     .task = {                         \
-        .stack_size = (3 * 1024),     \
+        .stack_size = (5 * 1024),     \
         .prio = 100,                  \
     },                                \
     .server = {                       \

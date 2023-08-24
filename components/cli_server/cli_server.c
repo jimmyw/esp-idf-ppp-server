@@ -1,52 +1,74 @@
 #include <assert.h>
+#include <lwip/netdb.h>
 
 #include "esp_log.h"
 
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+
+#include "cli_server.h"
+#include "cli_common.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#include <lwip/netdb.h>
-#include "cli_server.h"
-
 
 static const char *TAG = "cli_server";
 static cli_server_config_t config;
 
+static int console_printf(void *c, const char *data, int len)
+{
+    int sock = (int)c;
+    // send() can return less bytes than supplied length.
+    // Walk-around for robust implementation.
+    int to_write = len;
+    while (to_write > 0) {
+        int written = send(sock, data + (len - to_write), to_write, 0);
+        if (written < 0) {
+            ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+            // Failed to retransmit, giving up
+            return 0;
+        }
+        to_write -= written;
+    }
+    return len;
+}
 
 static void do_retransmit(const int sock)
 {
     int len;
-    char rx_buffer[128];
+    char rx_buffer[1024];
 
-    do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
-            ESP_LOGW(TAG, "Connection closed");
-        } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+    len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (len < 0) {
+        ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+        return;
+    } else if (len == 0) {
+        ESP_LOGW(TAG, "Connection closed");
+        return;
+    }
 
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                    // Failed to retransmit, giving up
-                    return;
-                }
-                to_write -= written;
-            }
-        }
-    } while (len > 0);
+    rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
+    ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+
+
+    FILE *orig_stdout = __getreent()->_stdout;
+    FILE *orig_stderr = __getreent()->_stderr;
+
+    // funopen(cookie, read, write, seek, close);
+    FILE *stdout_console = funopen((void *)sock, NULL, &console_printf, NULL, NULL);
+
+
+    __getreent()->_stdout = stdout_console;
+    __getreent()->_stderr = stdout_console;
+
+    run_multiple_commands(rx_buffer, true);
+
+    fflush(stdout_console);
+    __getreent()->_stdout = orig_stdout;
+    __getreent()->_stderr = orig_stderr;
+    fclose(stdout_console);
+
 }
-
 
 static void cli_task_thread(void *param)
 {
@@ -128,13 +150,11 @@ static void cli_task_thread(void *param)
 CLEAN_UP:
     close(listen_sock);
     vTaskDelete(NULL);
-
 }
 
 esp_err_t cli_server_init(const cli_server_config_t *_config)
 {
     config = *_config;
-
 
     BaseType_t ret = xTaskCreate(cli_task_thread, "cli_server_task", config.task.stack_size, NULL, config.task.prio, NULL);
     assert(ret == pdTRUE);
