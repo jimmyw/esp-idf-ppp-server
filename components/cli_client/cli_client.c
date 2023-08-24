@@ -1,81 +1,72 @@
 #include <assert.h>
+#include <lwip/netdb.h>
+#include <stdio.h>
 
+#include "esp_console.h"
 #include "esp_log.h"
-
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+
+#include "cli_client.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#include <lwip/netdb.h>
-#include "cli_client.h"
-#include "esp_console.h"
-
 
 static const char *TAG = "cli_client";
 static cli_client_config_t config;
 
-void tcp_client(const char *payload)
+int cli_client(const char *payload)
 {
     char rx_buffer[128];
 
-    int addr_family = 0;
-    int ip_protocol = 0;
+    struct sockaddr_in dest_addr;
+    inet_pton(AF_INET, config.server.host, &dest_addr.sin_addr);
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(config.server.port);
 
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sock < 0) {
+        printf("Unable to create socket: errno %d\n", errno);
+        return 1;
+    }
+    ESP_LOGI(TAG, "Socket created, connecting to %s:%d", config.server.host, config.server.port);
+
+    int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err != 0) {
+        printf("Socket unable to connect: errno %d\n", errno);
+        return 2;
+    }
+    ESP_LOGI(TAG, "Successfully connected");
+
+    err = send(sock, payload, strlen(payload), 0);
+    if (err < 0) {
+        printf("Error occurred during sending: errno %d\n", errno);
+        return 3;
+    }
+
+    int res = 0;
     while (1) {
 
-        struct sockaddr_in dest_addr;
-        inet_pton(AF_INET, config.server.host, &dest_addr.sin_addr);
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(config.server.port);
-        addr_family = AF_INET;
-        ip_protocol = IPPROTO_IP;
+        int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+        // Error occurred during receiving
+        if (len < 0) {
 
-
-        int sock =  socket(addr_family, SOCK_STREAM, ip_protocol);
-        if (sock < 0) {
-            ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+            if (errno == 128) // Closed socket, cli command done.
+                break;
+            printf("recv failed: errno %d\n", errno);
+            res = 4;
             break;
         }
-        ESP_LOGI(TAG, "Socket created, connecting to %s:%d", config.server.host, config.server.port);
-
-        int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        if (err != 0) {
-            ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
-            break;
-        }
-        ESP_LOGI(TAG, "Successfully connected");
-
-        while (1) {
-            int err = send(sock, payload, strlen(payload), 0);
-            if (err < 0) {
-                ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                break;
-            }
-
-            int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-            // Error occurred during receiving
-            if (len < 0) {
-                ESP_LOGE(TAG, "recv failed: errno %d", errno);
-                break;
-            }
-            // Data received
-            else {
-                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                ESP_LOGI(TAG, "Received %d bytes from %s:", len, config.server.host);
-                ESP_LOGI(TAG, "%s", rx_buffer);
-            }
-        }
-
-        if (sock != -1) {
-            ESP_LOGE(TAG, "Shutting down socket and restarting...");
-            shutdown(sock, 0);
-            close(sock);
-        }
+        fwrite(rx_buffer, len, 1, stdout);
     }
-}
 
+    if (sock != -1) {
+        shutdown(sock, 0);
+        close(sock);
+    }
+    return res;
+}
 
 static int cmd_cli_client(int argc, char **argv)
 {
@@ -91,10 +82,8 @@ static int cmd_cli_client(int argc, char **argv)
             strcat(buffer, " ");
     }
 
-    tcp_client(buffer);
-    return 0;
+    return cli_client(buffer);
 }
-
 
 esp_err_t cli_client_init(const cli_client_config_t *_config)
 {
