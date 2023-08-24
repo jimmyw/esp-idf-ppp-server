@@ -3,3 +3,4 @@ build
 *.old
 .vscode*
 *.lock
+.cache

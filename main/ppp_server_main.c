@@ -24,8 +24,10 @@
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "mqtt_client.h"
+#include "cli_client.h"
 #include "netif/ppp/ppp.h"
 #include "ppp_link.h"
+#include "cli_server.h"
 
 static const char *TAG = "ppp_server_main";
 
@@ -194,6 +196,14 @@ static int cmd_ppp_client(int argc, char **argv)
     return 0;
 }
 
+static int cmd_cli_server(int argc, char **argv)
+{
+    cli_server_config_t cli_server = DEFAULT_CLI_SERVER_CONFIG;
+
+    cli_server_init(&cli_server);
+    return 0;
+}
+
 void app_main(void)
 {
 
@@ -237,6 +247,18 @@ void app_main(void)
         .func = &cmd_ppp_client,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&ppp_client));
+
+    const esp_console_cmd_t cli_server_cmd = {
+        .command = "cli_server",
+        .help = "Start cli server",
+        .hint = NULL,
+        .func = &cmd_cli_server,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cli_server_cmd));
+
+
+    cli_client_config_t client_config = DEFAULT_CLI_CLIENT_CONFIG;
+    cli_client_init(&client_config);
 
     /* Sleep forever */
     ESP_LOGI(TAG, " ============================================================");
