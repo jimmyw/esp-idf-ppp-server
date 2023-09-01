@@ -5,6 +5,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "linenoise/linenoise.h"
 
 #include "cli_common.h"
 #include "cli_server.h"
@@ -15,7 +16,7 @@
 static const char *TAG = "cli_server";
 static cli_server_config_t config;
 
-static int console_printf(void *c, const char *data, int len)
+static int console_write(void *c, const char *data, int len)
 {
     int sock = (int)c;
     // send() can return less bytes than supplied length.
@@ -23,6 +24,7 @@ static int console_printf(void *c, const char *data, int len)
     int to_write = len;
     while (to_write > 0) {
         int written = send(sock, data + (len - to_write), to_write, 0);
+        ESP_LOGW(TAG, "%d bytes sent", written);
         if (written < 0) {
             ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
             // Failed to retransmit, giving up
@@ -33,38 +35,93 @@ static int console_printf(void *c, const char *data, int len)
     return len;
 }
 
+static int console_read(void *c, char *data, int len)
+{
+    ESP_LOGI(TAG, "Read %d bytes", len);
+    int sock = (int)c;
+    int res = recv(sock, data, len, 0);
+    if (res > 0) {
+        ESP_LOGW(TAG ,"Got: '%.*s'", data, len);
+    }
+    return res;
+}
+
+static int linenoiseDumb(char* buf, size_t buflen, const char* prompt) {
+    /* dumb terminal, fall back to fgets */
+    fputs(prompt, stdout);
+    size_t count = 0;
+    while (count < buflen) {
+        int c = fgetc(stdin);
+        if (c == '\n') {
+            break;
+        } else if (c >= 0x1c && c <= 0x1f){
+            continue; /* consume arrow keys */
+        } else if (c == 127 || c == 0x8) {
+            if (count > 0) {
+                buf[count - 1] = 0;
+                count --;
+            }
+            fputs("\x08 ", stdout); /* Windows CMD: erase symbol under cursor */
+        } else {
+            buf[count] = c;
+            ++count;
+        }
+        fputc(c, stdout); /* echo */
+    }
+    fputc('\n', stdout);
+    fflush(stdout);
+    return count;
+}
+
+static void sanitize(char* src) {
+    char* dst = src;
+    for (int c = *src; c != 0; src++, c = *src) {
+        if (isprint(c)) {
+            *dst = c;
+            ++dst;
+        }
+    }
+    *dst = 0;
+}
+
 static void cli_server_run(const int sock)
 {
-    int len;
-    char rx_buffer[config.server.max_arg_len];
-
-    len = recv(sock, rx_buffer, config.server.max_arg_len - 1, 0);
-    if (len < 0) {
-        ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-        return;
-    } else if (len == 0) {
-        ESP_LOGW(TAG, "Connection closed");
-        return;
-    }
-
-    rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-    ESP_LOGD(TAG, "Received cmd line of %d bytes: '%s'", len, rx_buffer);
-
+    FILE *orig_stdin = __getreent()->_stdin;
     FILE *orig_stdout = __getreent()->_stdout;
     FILE *orig_stderr = __getreent()->_stderr;
 
-    FILE *stdout_console = funopen((void *)sock, NULL, &console_printf, NULL, NULL);
+    FILE *remote_console = funopen((void *)sock, &console_read, &console_write, NULL, NULL);
 
-    __getreent()->_stdout = stdout_console;
-    __getreent()->_stderr = stdout_console;
+    __getreent()->_stdin = remote_console;
+    __getreent()->_stdout = remote_console;
+    __getreent()->_stderr = remote_console;
 
-    // Run multiple command is a hack, to chain multiple commands with ';'
-    run_multiple_commands(rx_buffer, true);
+    char buffer[1024];
+    while (1) {
+        ESP_LOGE(TAG, "Reading data from sock: %d", sock);
+        int count = linenoiseDumb(buffer, sizeof(buffer), "cli_server>");
+        if (count <= 0) {
+            ESP_LOGE(TAG, "No linenoise");
+            break;
+        }
+        sanitize(buffer);
+        ESP_LOGW(TAG, "line: '%s'", buffer);
 
-    fflush(stdout_console);
+        printf("\n"); // Extra newline.
+
+        run_multiple_commands(buffer, false);
+
+
+        // Just run one command and quit.
+        break;
+    }
+    ESP_LOGE(TAG, "Finished sock: %d", sock);
+
+    fflush(remote_console);
+    __getreent()->_stdin = orig_stdin;
     __getreent()->_stdout = orig_stdout;
     __getreent()->_stderr = orig_stderr;
-    fclose(stdout_console);
+    fclose(remote_console);
 }
 
 static void cli_task_thread(void *param)
