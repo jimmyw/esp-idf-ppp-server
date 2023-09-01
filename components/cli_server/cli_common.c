@@ -1,5 +1,6 @@
 #include <inttypes.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "esp_console.h"
 #include "esp_log.h"
