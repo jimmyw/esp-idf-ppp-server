@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
+#include "nvs_flash.h"
 #include "esp_vfs_fat.h"
 
 #include "freertos/FreeRTOS.h"
@@ -20,6 +21,7 @@
 #include "cmd_iperf.h"
 #include "cmd_ping.h"
 #include "cmd_system.h"
+#include "cmd_wifi.h"
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
@@ -204,6 +206,16 @@ static int cmd_cli_server(int argc, char **argv)
     return 0;
 }
 
+static void initialize_nvs(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK( nvs_flash_erase() );
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(err);
+}
+
 void app_main(void)
 {
 
@@ -214,22 +226,26 @@ void app_main(void)
 
     // init console REPL environment
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
-
-    /* Register commands */
-    register_system_common();
-    register_iperf();
-    register_ping();
-
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &on_ip_event, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, &on_ppp_changed, NULL));
-
     esp_log_level_set("esp_netif_lwip", ESP_LOG_VERBOSE);
     esp_log_level_set("ppp_link", ESP_LOG_VERBOSE);
     esp_log_level_set("ppp_server_main", ESP_LOG_VERBOSE);
+    esp_log_level_set("cli_server", ESP_LOG_VERBOSE);
     esp_log_level_set("esp-netif_lwip-ppp", ESP_LOG_VERBOSE);
     esp_log_level_set("*", ESP_LOG_INFO);
+
+
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    initialize_nvs();
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &on_ip_event, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, &on_ppp_changed, NULL));
+
+    /* Register commands */
+    register_system_common();
+    register_wifi();
+    register_iperf();
+    register_ping();
+
 
 #ifdef CONFIG_PPP_SERVER_SUPPORT
     const esp_console_cmd_t ppp_server = {
