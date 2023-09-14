@@ -1,4 +1,5 @@
 build
+dist
 *.log
 *.old
 .vscode*

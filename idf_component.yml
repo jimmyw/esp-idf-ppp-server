@@ -1,0 +1,14 @@
+description: Connect two ESP32 together with serial uart, and set up a PPP ip network between them.
+
+version: 0.0.1
+
+url: https://github.com/jimmyw/esp-idf-ppp-server
+issues: https://github.com/jimmyw/esp-idf-ppp-server/issues
+documentation: https://github.com/jimmyw/esp-idf-ppp-server/blob/main/README.md
+repository: git@github.com:jimmyw/esp-idf-ppp-server.git
+
+maintainers:
+  - "Jimmy Wennlund <jimmy@wennlund.nu>"
+
+dependencies:
+  idf: ">=5.0.0"

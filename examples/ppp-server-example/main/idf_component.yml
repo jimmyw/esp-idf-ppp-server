@@ -1,0 +1,4 @@
+dependencies:
+  jimmyw/esp-idf-ppp-server:
+    version: "*"
+    override_path: '../../../'
